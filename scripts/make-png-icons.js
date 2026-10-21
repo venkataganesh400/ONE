@@ -37,133 +37,153 @@ function createChunk(type, data) {
   return chunk;
 }
 
+// Signed Distance Function helpers for smooth anti-aliased rendering in 512x512 virtual canvas
+function sdRoundBox(px, py, bx, by, r) {
+  const qx = Math.abs(px) - bx + r;
+  const qy = Math.abs(py) - by + r;
+  return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r;
+}
+
+function clamp(v, lo, hi) {
+  return Math.max(lo, Math.min(hi, v));
+}
+
+function mix(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function sampleVirtual512(vx, vy, isMaskable) {
+  const aa = 1.2;
+
+  // 1. Outer Squircle Boundary (unless maskable full-bleed)
+  let bgAlpha = 1.0;
+  let borderMix = 0.0;
+  if (!isMaskable) {
+    const dOuter = sdRoundBox(vx - 256, vy - 256, 256, 256, 116);
+    bgAlpha = clamp(0.5 - dOuter / aa, 0, 1);
+    if (bgAlpha <= 0) return [0, 0, 0, 0];
+
+    const dBorder = Math.abs(dOuter + 4) - 2.0;
+    borderMix = clamp(0.5 - dBorder / aa, 0, 1);
+  }
+
+  // Background vertical gradient: #18181b (24,24,27) -> #050505 (5,5,5)
+  const gy = clamp(vy / 512, 0, 1);
+  let r = mix(24, 5, gy);
+  let g = mix(24, 5, gy);
+  let b = mix(27, 5, gy);
+
+  // Subtle border highlight
+  if (borderMix > 0) {
+    const bCol = mix(63, 24, gy);
+    r = mix(r, bCol, borderMix);
+    g = mix(g, bCol, borderMix);
+    b = mix(b, bCol + 3, borderMix);
+  }
+
+  // Transform into inner safe zone if maskable
+  let ix = vx;
+  let iy = vy;
+  if (isMaskable) {
+    ix = (vx - 256) / 0.8 + 256;
+    iy = (vy - 256) / 0.8 + 256;
+  }
+
+  // 2. Architectural Ring (radius 168, strokeWidth 6)
+  const dx = ix - 256;
+  const dy = iy - 256;
+  const distRing = Math.abs(Math.hypot(dx, dy) - 168) - 3.0;
+  const ringAlpha = clamp(0.5 - distRing / aa, 0, 1);
+  if (ringAlpha > 0) {
+    // Check if in top-right quadrant (dx >= 0, dy <= 0) for white focus arc
+    const inArc = dx >= -2 && dy <= 2;
+    const targetR = inArc ? 255 : 39;
+    const targetG = inArc ? 255 : 39;
+    const targetB = inArc ? 255 : 42;
+    r = mix(r, targetR, ringAlpha);
+    g = mix(g, targetG, ringAlpha);
+    b = mix(b, targetB, ringAlpha);
+  }
+
+  // 3. Subtle Silver Folded Wing: Triangle (196,204) -> (244,156) -> (244,204)
+  // Inside test: x <= 244, y <= 204, and (x - 196) + (204 - y) <= 48 => y >= 156 + (244 - x)
+  const dWingRight = ix - 244;
+  const dWingBottom = iy - 204;
+  const dWingDiag = (156 + (244 - ix) - iy) * Math.SQRT1_2;
+  const dWing = Math.max(dWingRight, dWingBottom, dWingDiag);
+  const wingAlpha = clamp(0.5 - dWing / aa, 0, 1);
+  if (wingAlpha > 0) {
+    r = mix(r, 161, wingAlpha);
+    g = mix(g, 161, wingAlpha);
+    b = mix(b, 170, wingAlpha);
+  }
+
+  // 4. Pure White Primary Stem: rect x=244..288 (cx=266, w=44->bx=22), y=156..356 (cy=256, h=200->by=100), rx=6
+  const dStem = sdRoundBox(ix - 266, iy - 256, 22, 100, 6);
+  const stemAlpha = clamp(0.5 - dStem / aa, 0, 1);
+  if (stemAlpha > 0) {
+    const stemT = clamp((iy - 156) / 200, 0, 1);
+    const stemCol = mix(255, 232, stemT);
+    r = mix(r, stemCol, stemAlpha);
+    g = mix(g, stemCol, stemAlpha);
+    b = mix(b, stemCol, stemAlpha);
+  }
+
+  return [Math.round(r), Math.round(g), Math.round(b), Math.round(bgAlpha * 255)];
+}
+
 function createPng(width, height, isMaskable = false) {
   const scanlines = Buffer.alloc(height * (1 + width * 4));
-  const cx = width / 2;
-  const cy = height / 2;
-  const radius = width * 0.45;
-  const cornerRadius = isMaskable ? 0 : width * 0.22;
+  const scale = 512 / width;
 
   let offset = 0;
   for (let y = 0; y < height; y++) {
-    scanlines[offset++] = 0; // Filter type 0 (None)
+    scanlines[offset++] = 0; // Filter type 0
 
     for (let x = 0; x < width; x++) {
-      // Check rounded corner boundary if not maskable
-      let inBox = true;
-      if (!isMaskable) {
-        const dx = Math.abs(x - cx) - (cx - cornerRadius);
-        const dy = Math.abs(y - cy) - (cy - cornerRadius);
-        if (dx > 0 && dy > 0) {
-          inBox = (dx * dx + dy * dy) <= (cornerRadius * cornerRadius);
+      // 2x2 supersampling for crisp downscaling at all sizes (including 32x32 favicon)
+      let sr = 0, sg = 0, sb = 0, sa = 0;
+      const offsets = [0.25, 0.75];
+      for (const oy of offsets) {
+        for (const ox of offsets) {
+          const vx = (x + ox) * scale;
+          const vy = (y + oy) * scale;
+          const [r, g, b, a] = sampleVirtual512(vx, vy, isMaskable);
+          sr += r;
+          sg += g;
+          sb += b;
+          sa += a;
         }
       }
-
-      if (!inBox) {
-        // Transparent outside rounded corner
-        scanlines[offset++] = 0;
-        scanlines[offset++] = 0;
-        scanlines[offset++] = 0;
-        scanlines[offset++] = 0;
-        continue;
-      }
-
-      // Background gradient: slate-900 (#0f172a) to deep indigo (#1e1b4b) to black (#020617)
-      const gradT = (x + y) / (width + height);
-      let r = Math.round(15 * (1 - gradT) + 30 * gradT * 0.5 + 2 * gradT);
-      let g = Math.round(23 * (1 - gradT) + 27 * gradT * 0.5 + 6 * gradT);
-      let b = Math.round(42 * (1 - gradT) + 75 * gradT * 0.5 + 23 * gradT);
-      let a = 255;
-
-      // Distance from center
-      const distFromCenter = Math.hypot(x - cx, y - cy);
-
-      // Ring Orbit (indigo/cyan accent)
-      const ringRadius = width * (isMaskable ? 0.32 : 0.38);
-      const ringDist = Math.abs(distFromCenter - ringRadius);
-      if (ringDist < width * 0.02) {
-        const ringAlpha = Math.max(0, 1 - ringDist / (width * 0.02));
-        r = Math.round(r * (1 - ringAlpha) + 56 * ringAlpha);
-        g = Math.round(g * (1 - ringAlpha) + 189 * ringAlpha);
-        b = Math.round(b * (1 - ringAlpha) + 248 * ringAlpha);
-      }
-
-      // Center Monogram "1"
-      // Scale coordinates to normalized box [-1, 1]
-      const scale = isMaskable ? 0.7 : 0.85;
-      const nx = (x - cx) / (cx * scale);
-      const ny = (y - cy) / (cy * scale);
-
-      // Vertical stem of "1": nx between -0.05 and 0.12, ny between -0.45 and 0.45
-      const inStem = nx >= -0.05 && nx <= 0.12 && ny >= -0.42 && ny <= 0.42;
-      // Top slant of "1": triangular seraph from (-0.28, -0.22) to (0.05, -0.42)
-      const inSeraph = nx >= -0.26 && nx <= 0.05 && ny >= -0.45 && ny <= (-0.22 + (nx + 0.26) * (-0.23 / 0.31) + 0.12);
-      // Bottom pedestal of "1": nx between -0.32 and 0.32, ny between 0.35 and 0.45
-      const inPedestal = nx >= -0.32 && nx <= 0.32 && ny >= 0.35 && ny <= 0.45;
-      // Accent orb dot: around (0.32, -0.32)
-      const inDot = Math.hypot(nx - 0.32, ny - (-0.32)) <= 0.09;
-
-      if (inStem || inSeraph || inPedestal || inDot) {
-        // Glowing gradient: cyan (#38bdf8) to indigo (#6366f1) to purple (#a855f7)
-        const markT = (ny + 0.45) / 0.9;
-        r = Math.round(56 * (1 - markT) + 99 * 0.4 + 168 * markT);
-        g = Math.round(189 * (1 - markT) + 102 * 0.4 + 85 * markT);
-        b = Math.round(248 * (1 - markT) + 241 * 0.4 + 247 * markT);
-      }
-
-      scanlines[offset++] = Math.min(255, Math.max(0, r));
-      scanlines[offset++] = Math.min(255, Math.max(0, g));
-      scanlines[offset++] = Math.min(255, Math.max(0, b));
-      scanlines[offset++] = a;
+      scanlines[offset++] = Math.round(sr / 4);
+      scanlines[offset++] = Math.round(sg / 4);
+      scanlines[offset++] = Math.round(sb / 4);
+      scanlines[offset++] = Math.round(sa / 4);
     }
   }
 
-  // PNG Header
   const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-
-  // IHDR chunk
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0);
   ihdr.writeUInt32BE(height, 4);
-  ihdr[8] = 8; // bit depth
-  ihdr[9] = 6; // color type RGBA
-  ihdr[10] = 0; // compression
-  ihdr[11] = 0; // filter
-  ihdr[12] = 0; // interlace
-  const ihdrChunk = createChunk('IHDR', ihdr);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  ihdr[10] = 0;
+  ihdr[11] = 0;
+  ihdr[12] = 0;
 
-  // IDAT chunk
+  const ihdrChunk = createChunk('IHDR', ihdr);
   const compressed = zlib.deflateSync(scanlines, { level: 9 });
   const idatChunk = createChunk('IDAT', compressed);
-
-  // IEND chunk
   const iendChunk = createChunk('IEND', Buffer.alloc(0));
 
   return Buffer.concat([signature, ihdrChunk, idatChunk, iendChunk]);
 }
 
-// Generate all required PWA icons
-console.log('Generating PWA icons...');
-const icon192 = createPng(192, 192, false);
-fs.writeFileSync(path.join(publicDir, 'pwa-192x192.png'), icon192);
-
-const icon512 = createPng(512, 512, false);
-fs.writeFileSync(path.join(publicDir, 'pwa-512x512.png'), icon512);
-
-const iconMaskable512 = createPng(512, 512, true);
-fs.writeFileSync(path.join(publicDir, 'pwa-maskable-512x512.png'), iconMaskable512);
-
-const appleTouchIcon = createPng(180, 180, false);
-fs.writeFileSync(path.join(publicDir, 'apple-touch-icon.png'), appleTouchIcon);
-
-// Favicon 32x32 ICO compatible
-const faviconPng = createPng(32, 32, false);
-fs.writeFileSync(path.join(publicDir, 'favicon.ico'), faviconPng);
-
-// Clean up temporary render HTML
-try {
-  fs.unlinkSync(path.join(publicDir, '_render_any.html'));
-  fs.unlinkSync(path.join(publicDir, '_render_maskable.html'));
-} catch (e) {}
-
-console.log('All PWA icons successfully generated!');
+console.log('Generating minimal monochrome PWA icons...');
+fs.writeFileSync(path.join(publicDir, 'pwa-192x192.png'), createPng(192, 192, false));
+fs.writeFileSync(path.join(publicDir, 'pwa-512x512.png'), createPng(512, 512, false));
+fs.writeFileSync(path.join(publicDir, 'pwa-maskable-512x512.png'), createPng(512, 512, true));
+fs.writeFileSync(path.join(publicDir, 'apple-touch-icon.png'), createPng(180, 180, false));
+fs.writeFileSync(path.join(publicDir, 'favicon.ico'), createPng(32, 32, false));
+console.log('All monochrome PWA icons generated!');

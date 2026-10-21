@@ -34,14 +34,48 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="sticky top-0 z-40 w-full border-b border-zinc-200 dark:border-zinc-900 bg-white/90 dark:bg-black/90 backdrop-blur-md transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-6">
-        {/* Zone 1: Single text element Brand wordmark */}
+        {/* Zone 1: Brand mark + single text element wordmark */}
         <button
           type="button"
           onClick={() => onSelectTab('planner')}
-          className="text-lg font-extrabold tracking-tight text-zinc-950 dark:text-white whitespace-nowrap shrink-0 focus:outline-none"
+          className="inline-flex items-center gap-2.5 text-lg font-extrabold tracking-tight text-zinc-950 dark:text-white whitespace-nowrap shrink-0 focus:outline-none group"
           aria-label="One Student Workspace Home"
         >
-          One
+          <svg
+            viewBox="0 0 512 512"
+            className="w-7 h-7 rounded-lg shadow-xs transition-transform duration-200 group-hover:scale-105 shrink-0"
+            aria-hidden="true"
+          >
+            <rect width="512" height="512" rx="116" className="fill-zinc-950 dark:fill-zinc-900" />
+            <rect
+              width="504"
+              height="504"
+              x="4"
+              y="4"
+              rx="112"
+              fill="none"
+              className="stroke-zinc-800 dark:stroke-zinc-700"
+              strokeWidth="12"
+            />
+            <circle
+              cx="256"
+              cy="256"
+              r="168"
+              fill="none"
+              className="stroke-zinc-800 dark:stroke-zinc-800"
+              strokeWidth="16"
+            />
+            <path
+              d="M 256 88 A 168 168 0 0 1 424 256"
+              fill="none"
+              stroke="#ffffff"
+              strokeWidth="16"
+              strokeLinecap="round"
+            />
+            <polygon points="196,204 244,156 244,204" fill="#a1a1aa" />
+            <rect x="244" y="156" width="44" height="200" rx="8" fill="#ffffff" />
+          </svg>
+          <span>One</span>
         </button>
 
         {/* Zone 2: Navigation links or Check-in Step Counter */}
