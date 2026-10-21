@@ -19,6 +19,7 @@ import {
 } from './utils/workspace.ts';
 import { ProgressBar } from './components/ProgressBar.tsx';
 import { Header } from './components/Header.tsx';
+import { BottomNav } from './components/BottomNav.tsx';
 import { QuestionScreen } from './components/QuestionScreen.tsx';
 import { StudentOverview } from './components/StudentOverview.tsx';
 import { StudentTasksView } from './components/StudentTasksView.tsx';
@@ -28,17 +29,8 @@ import { StudentExpensesView } from './components/StudentExpensesView.tsx';
 import { StudentNotesView } from './components/StudentNotesView.tsx';
 import { OfflineIndicator } from './components/OfflineIndicator.tsx';
 
-const WORKSPACE_STORAGE_KEY = 'one_student_workspace_v4';
-const CHECKIN_STORAGE_KEY = 'one_student_checkin_v4';
-
-const MOBILE_TABS: { id: StudentTab; label: string }[] = [
-  { id: 'planner', label: 'Overview' },
-  { id: 'tasks', label: 'Tasks' },
-  { id: 'study', label: 'Studies' },
-  { id: 'focus', label: 'Focus' },
-  { id: 'expenses', label: 'Expenses' },
-  { id: 'notes', label: 'Notes' },
-];
+const WORKSPACE_STORAGE_KEY = 'one_student_workspace_v5';
+const CHECKIN_STORAGE_KEY = 'one_student_checkin_v5';
 
 export default function App() {
   const [data, setData] = useState<StudentWorkspaceData>(() => {
@@ -50,6 +42,7 @@ export default function App() {
         return {
           ...INITIAL_STUDENT_WORKSPACE,
           ...parsed,
+          currency: parsed.currency || '₹',
           scheduleBlocks:
             Array.isArray(parsed.scheduleBlocks) && parsed.scheduleBlocks.length > 0
               ? parsed.scheduleBlocks
@@ -260,6 +253,7 @@ export default function App() {
   };
 
   const activeQuestion = QUESTIONS[currentStepIndex];
+  const pendingTaskCount = data.tasks.filter((t) => !t.completed).length;
 
   return (
     <div className="min-h-screen bg-white text-zinc-950 dark:bg-black dark:text-white flex flex-col font-sans selection:bg-zinc-950 selection:text-white dark:selection:bg-white dark:selection:text-black transition-colors duration-200">
@@ -268,7 +262,7 @@ export default function App() {
         <ProgressBar currentStep={currentStepIndex + 1} totalSteps={TOTAL_QUESTIONS} />
       )}
 
-      {/* Minimal Top Bar with Dark/Bright Toggle */}
+      {/* Executive Top Header */}
       <Header
         theme={data.theme}
         onToggleTheme={handleToggleTheme}
@@ -278,46 +272,25 @@ export default function App() {
         totalSteps={TOTAL_QUESTIONS}
       />
 
-      {/* Mobile Tab Strip (Visible on mobile when not in check-in wizard) */}
-      {activeTab !== 'checkin' && (
-        <div className="md:hidden border-b border-zinc-200 dark:border-zinc-900 bg-zinc-50/80 dark:bg-zinc-950/80 px-4 py-2 overflow-x-auto">
-          <div className="flex items-center gap-1.5">
-            {MOBILE_TABS.map((tab) => {
-              const isSelected = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => handleSelectTab(tab.id)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition whitespace-nowrap shrink-0 ${
-                    isSelected
-                      ? 'bg-zinc-950 text-white dark:bg-white dark:text-black font-semibold'
-                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col">
         {activeTab === 'checkin' && activeQuestion ? (
-          <QuestionScreen
-            key={activeQuestion.id}
-            question={activeQuestion}
-            responses={checkinResponses}
-            onUpdateResponses={setCheckinResponses}
-            onContinue={handleCheckinContinue}
-            onBack={handleCheckinBack}
-            canBack={currentStepIndex > 0}
-            isLastStep={currentStepIndex === TOTAL_QUESTIONS - 1}
-          />
+          <div key={`checkin-${activeQuestion.id}`} className="flex-1 flex flex-col view-transition-enter">
+            <QuestionScreen
+              question={activeQuestion}
+              responses={checkinResponses}
+              onUpdateResponses={setCheckinResponses}
+              onContinue={handleCheckinContinue}
+              onBack={handleCheckinBack}
+              canBack={currentStepIndex > 0}
+              isLastStep={currentStepIndex === TOTAL_QUESTIONS - 1}
+            />
+          </div>
         ) : (
-          <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1">
+          <div
+            key={activeTab}
+            className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-7 sm:py-9 flex-1 view-transition-enter"
+          >
             {activeTab === 'planner' && (
               <StudentOverview
                 data={data}
@@ -349,16 +322,16 @@ export default function App() {
         )}
       </main>
 
-      {/* Quiet Footer with Export, JSON Backup/Restore & Reset */}
+      {/* Quiet Footer with Export, JSON Backup/Restore & Reset (padded for bottom glossy nav dock) */}
       {activeTab !== 'checkin' && (
-        <footer className="border-t border-zinc-200 dark:border-zinc-900 py-6 px-4 sm:px-6 lg:px-8">
+        <footer className="border-t border-zinc-200/80 dark:border-zinc-900 pt-6 pb-28 sm:pb-32 px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-500 dark:text-zinc-400">
-            <span>One · All-in-One Student Workspace · Gemini Schedule & Study Engine</span>
+            <span>One · All-in-One Student Workspace · Gemini Schedule &amp; Study Engine</span>
             <div className="flex flex-wrap items-center justify-center gap-4">
               <button
                 type="button"
                 onClick={handleExportReport}
-                className="inline-flex items-center gap-1.5 hover:text-zinc-950 dark:hover:text-white transition"
+                className="inline-flex items-center gap-1.5 hover:text-zinc-950 dark:hover:text-white transition whitespace-nowrap shrink-0"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Export Report (.md)</span>
@@ -367,7 +340,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={handleExportJsonBackup}
-                className="inline-flex items-center gap-1.5 hover:text-zinc-950 dark:hover:text-white transition"
+                className="inline-flex items-center gap-1.5 hover:text-zinc-950 dark:hover:text-white transition whitespace-nowrap shrink-0"
               >
                 <FileJson className="w-3.5 h-3.5" />
                 <span>Backup (.json)</span>
@@ -376,7 +349,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 hover:text-zinc-950 dark:hover:text-white transition"
+                className="inline-flex items-center gap-1.5 hover:text-zinc-950 dark:hover:text-white transition whitespace-nowrap shrink-0"
               >
                 <Upload className="w-3.5 h-3.5" />
                 <span>Restore (.json)</span>
@@ -393,7 +366,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={handleResetDemoData}
-                className="inline-flex items-center gap-1.5 hover:text-zinc-950 dark:hover:text-white transition"
+                className="inline-flex items-center gap-1.5 hover:text-zinc-950 dark:hover:text-white transition whitespace-nowrap shrink-0"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Reset Sample Data</span>
@@ -402,6 +375,13 @@ export default function App() {
           </div>
         </footer>
       )}
+
+      {/* Glossy Bottom Navigation Bar */}
+      <BottomNav
+        activeTab={activeTab}
+        onSelectTab={handleSelectTab}
+        pendingTaskCount={pendingTaskCount}
+      />
 
       <OfflineIndicator />
     </div>

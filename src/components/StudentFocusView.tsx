@@ -259,10 +259,10 @@ export const StudentFocusView: React.FC<StudentFocusViewProps> = ({
             <div className="text-6xl sm:text-8xl font-extrabold font-mono text-zinc-950 dark:text-white tracking-tight tabular-nums">
               {formatTimeLeft(timeLeft)}
             </div>
-            <p className="mt-2 text-xs font-mono uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+            <p className="mt-2 text-xs font-mono text-zinc-500 dark:text-zinc-400">
               {isRunning
                 ? `Focusing on ${selectedCourse}${activeTask ? ` · ${activeTask.title}` : ''}`
-                : 'Ready to Begin'}
+                : 'Ready to begin study session'}
             </p>
           </div>
 
@@ -271,7 +271,7 @@ export const StudentFocusView: React.FC<StudentFocusViewProps> = ({
             <button
               type="button"
               onClick={() => setIsRunning(!isRunning)}
-              className="flex items-center gap-2 px-8 py-4 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-black text-sm font-semibold hover:opacity-90 transition active:scale-95"
+              className="flex items-center gap-2 px-8 py-4 rounded-full glossy-active-tab text-sm font-semibold hover:opacity-95 transition active:scale-95"
             >
               {isRunning ? (
                 <>

@@ -5,15 +5,146 @@
 @layer base {
   :root {
     --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    --font-mono: 'JetBrains Mono', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   }
 
   body {
     font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   code, kbd, pre, .font-mono {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
   }
+}
+
+/* Smooth Compositor-Only Tab & View Transitions */
+@keyframes viewEnter {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0) scale(0.996);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.view-transition-enter {
+  animation: viewEnter 190ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.smooth-spring {
+  transition-property: transform, opacity, background-color, border-color, color, box-shadow;
+  transition-duration: 190ms;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view-transition-enter {
+    animation: none !important;
+  }
+  .smooth-spring {
+    transition-duration: 0ms !important;
+  }
+}
+
+/* Executive Glossy Dock & Surface System */
+.glossy-dock {
+  background: linear-gradient(
+    165deg,
+    rgba(255, 255, 255, 0.86) 0%,
+    rgba(244, 244, 248, 0.72) 48%,
+    rgba(255, 255, 255, 0.9) 100%
+  );
+  backdrop-filter: blur(32px) saturate(210%);
+  -webkit-backdrop-filter: blur(32px) saturate(210%);
+  box-shadow:
+    0 22px 52px -10px rgba(9, 9, 11, 0.22),
+    0 8px 20px -4px rgba(9, 9, 11, 0.1),
+    0 0 0 1px rgba(9, 9, 11, 0.08),
+    inset 0 1.5px 0 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 0 rgba(9, 9, 11, 0.06);
+}
+
+.dark .glossy-dock {
+  background: linear-gradient(
+    165deg,
+    rgba(42, 42, 48, 0.84) 0%,
+    rgba(18, 18, 22, 0.75) 50%,
+    rgba(30, 30, 36, 0.85) 100%
+  );
+  backdrop-filter: blur(32px) saturate(210%);
+  -webkit-backdrop-filter: blur(32px) saturate(210%);
+  box-shadow:
+    0 26px 60px -10px rgba(0, 0, 0, 0.88),
+    0 10px 24px -4px rgba(0, 0, 0, 0.68),
+    0 0 0 1px rgba(255, 255, 255, 0.15),
+    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.32),
+    inset 0 -1px 0 0 rgba(255, 255, 255, 0.07);
+}
+
+.glossy-active-tab {
+  background: linear-gradient(
+    180deg,
+    #3f3f46 0%,
+    #18181b 46%,
+    #09090b 100%
+  );
+  color: #ffffff;
+  box-shadow:
+    0 6px 16px -2px rgba(9, 9, 11, 0.4),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.38);
+}
+
+.dark .glossy-active-tab {
+  background: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    #f4f4f5 52%,
+    #d4d4d8 100%
+  );
+  color: #09090b;
+  box-shadow:
+    0 6px 20px -2px rgba(255, 255, 255, 0.34),
+    inset 0 1.5px 0 0 rgba(255, 255, 255, 1);
+}
+
+.glossy-header {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.88) 0%,
+    rgba(250, 250, 252, 0.76) 100%
+  );
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+.dark .glossy-header {
+  background: linear-gradient(
+    180deg,
+    rgba(16, 16, 19, 0.86) 0%,
+    rgba(9, 9, 11, 0.74) 100%
+  );
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+.pro-surface {
+  background-color: #fafafa;
+  border: 1px solid rgba(228, 228, 231, 0.95);
+  box-shadow:
+    0 2px 6px -1px rgba(9, 9, 11, 0.03),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+}
+
+.dark .pro-surface {
+  background-color: #09090b;
+  border: 1px solid rgba(39, 39, 42, 0.95);
+  box-shadow:
+    0 4px 12px -2px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
 }

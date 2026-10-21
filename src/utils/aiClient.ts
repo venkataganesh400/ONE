@@ -172,7 +172,8 @@ export async function requestSmartExpenseParse(
   rawText: string,
   monthlyBudget: number,
   totalSpent: number,
-  todayStr: string
+  todayStr: string,
+  currency: string = '₹'
 ): Promise<{
   advice: string;
   items: Omit<ExpenseItem, 'id'>[];
@@ -187,6 +188,7 @@ export async function requestSmartExpenseParse(
         monthlyBudget,
         totalSpent,
         today: todayStr,
+        currency,
       }),
     });
 
@@ -231,7 +233,8 @@ export async function requestSmartExpenseParse(
     rawText,
     monthlyBudget,
     totalSpent,
-    todayStr
+    todayStr,
+    currency
   );
   return { ...fallback, source: 'local' };
 }

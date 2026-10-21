@@ -12,14 +12,15 @@ interface HeaderProps {
   totalSteps?: number;
 }
 
-const WORKSPACE_TABS: { id: StudentTab; label: string }[] = [
-  { id: 'planner', label: 'Overview' },
-  { id: 'tasks', label: 'Tasks' },
-  { id: 'study', label: 'Studies' },
-  { id: 'focus', label: 'Focus' },
-  { id: 'expenses', label: 'Expenses' },
-  { id: 'notes', label: 'Notes' },
-];
+const SECTION_LABELS: Record<StudentTab, string> = {
+  planner: 'Daily Overview & AI Time-Block Schedule',
+  tasks: 'Coursework Assignments & AI Task Breakdown',
+  study: 'Syllabus Mastery & Semester GPA Ledger',
+  focus: 'Deep Work Pomodoro & Session Attribution',
+  expenses: 'Campus Allowance & Safe-Spend Pacing',
+  notes: 'Lecture Markdown & Active Recall Flashcards',
+  checkin: 'Daily Academic Alignment Wizard',
+};
 
 export const Header: React.FC<HeaderProps> = ({
   theme,
@@ -32,18 +33,18 @@ export const Header: React.FC<HeaderProps> = ({
   const isCheckin = activeTab === 'checkin';
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-zinc-200 dark:border-zinc-900 bg-white/90 dark:bg-black/90 backdrop-blur-md transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-6">
+    <header className="sticky top-0 z-40 w-full border-b border-zinc-200/80 dark:border-zinc-800/80 glossy-header transition-colors">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-12 sm:h-14 flex items-center justify-between gap-6">
         {/* Zone 1: Brand mark + single text element wordmark */}
         <button
           type="button"
           onClick={() => onSelectTab('planner')}
-          className="inline-flex items-center gap-2.5 text-lg font-extrabold tracking-tight text-zinc-950 dark:text-white whitespace-nowrap shrink-0 focus:outline-none group"
+          className="inline-flex items-center gap-2.5 text-base sm:text-lg font-extrabold tracking-tight text-zinc-950 dark:text-white whitespace-nowrap shrink-0 focus:outline-none group"
           aria-label="One Student Workspace Home"
         >
           <svg
             viewBox="0 0 512 512"
-            className="w-7 h-7 rounded-lg shadow-xs transition-transform duration-200 group-hover:scale-105 shrink-0"
+            className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg shadow-xs transition-transform duration-200 group-hover:scale-105 shrink-0"
             aria-hidden="true"
           >
             <rect width="512" height="512" rx="116" className="fill-zinc-950 dark:fill-zinc-900" />
@@ -78,7 +79,7 @@ export const Header: React.FC<HeaderProps> = ({
           <span>One</span>
         </button>
 
-        {/* Zone 2: Navigation links or Check-in Step Counter */}
+        {/* Zone 2: Contextual Section Title or Check-in Step Counter */}
         {isCheckin ? (
           <div className="flex items-center gap-4 text-xs font-mono text-zinc-500 dark:text-zinc-400">
             <span>
@@ -98,37 +99,21 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
         ) : (
-          <nav
-            className="hidden md:flex items-center gap-6 text-sm font-medium"
-            aria-label="Student workspace navigation"
-          >
-            {WORKSPACE_TABS.map((tab) => {
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => onSelectTab(tab.id)}
-                  className={`py-5 border-b-2 transition-colors whitespace-nowrap shrink-0 ${
-                    isActive
-                      ? 'border-zinc-950 dark:border-white text-zinc-950 dark:text-white font-semibold'
-                      : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
-                  }`}
-                  aria-current={isActive ? 'page' : undefined}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </nav>
+          <div className="hidden md:flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 truncate">
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">
+              Student Workspace
+            </span>
+            <span aria-hidden="true">/</span>
+            <span className="truncate">{SECTION_LABELS[activeTab]}</span>
+          </div>
         )}
 
         {/* Zone 3: Theme Toggle & Check-in / Install Action */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={onToggleTheme}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition text-xs font-medium whitespace-nowrap shrink-0"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-zinc-300/90 dark:border-zinc-800 bg-zinc-100/90 dark:bg-zinc-900/90 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition text-xs font-medium whitespace-nowrap shrink-0"
             aria-label={theme === 'dark' ? 'Switch to Bright Mode' : 'Switch to Dark Mode'}
           >
             {theme === 'dark' ? (
@@ -148,7 +133,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={() => onSelectTab('checkin')}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-black hover:opacity-90 transition text-xs font-semibold whitespace-nowrap shrink-0"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full glossy-active-tab hover:opacity-95 transition text-xs font-semibold whitespace-nowrap shrink-0"
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
               <span>Daily Check-in</span>

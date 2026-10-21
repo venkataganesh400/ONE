@@ -301,7 +301,7 @@ export const StudentTasksView: React.FC<StudentTasksViewProps> = ({
                     </p>
 
                     <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-zinc-500 dark:text-zinc-400">
-                      <span className="px-2 py-0.5 rounded-md bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 font-semibold">
+                      <span className="font-bold text-zinc-800 dark:text-zinc-200">
                         {task.course}
                       </span>
                       <span aria-hidden="true">·</span>

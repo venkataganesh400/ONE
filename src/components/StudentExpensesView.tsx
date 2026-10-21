@@ -22,6 +22,11 @@ const CATEGORIES: ExpenseCategory[] = [
   'Other',
 ];
 
+const CURRENCY_OPTIONS = [
+  { symbol: '₹', code: 'INR', label: 'INR' },
+  { symbol: '$', code: 'USD', label: 'USD' },
+] as const;
+
 export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
   data,
   onUpdateData,
@@ -45,6 +50,23 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
     selectedCategoryFilter === 'all'
       ? data.expenses
       : data.expenses.filter((e) => e.category === selectedCategoryFilter);
+
+  const handleSelectCurrency = (nextSymbol: string) => {
+    if (nextSymbol === data.currency) return;
+    onUpdateData((prev) => {
+      const nextBudget =
+        nextSymbol === '₹' && prev.monthlyBudget <= 1200
+          ? 15000
+          : nextSymbol === '$' && prev.monthlyBudget >= 8000
+            ? 500
+            : prev.monthlyBudget;
+      return {
+        ...prev,
+        currency: nextSymbol,
+        monthlyBudget: nextBudget,
+      };
+    });
+  };
 
   const handleAddExpense = (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,7 +101,8 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
         smartExpenseText.trim(),
         data.monthlyBudget,
         summary.totalSpent,
-        todayStr
+        todayStr,
+        data.currency
       );
       if (res.items.length > 0) {
         const created: ExpenseItem[] = res.items.map((item, idx) => ({
@@ -94,7 +117,7 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
         setSmartExpenseText('');
       } else {
         setCoachAdvice(
-          'Include a number amount in your text (e.g. "Spent 12.50 on lunch and 28 on calculus book").'
+          `Include a number amount in your text (e.g. "Spent ${data.currency}150 on lunch and ${data.currency}480 on calculus book").`
         );
       }
     } finally {
@@ -121,60 +144,94 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
     setEditingBudget(false);
   };
 
+  const isRupees = data.currency === '₹';
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-950 dark:text-white tracking-tight">
-            Student Expenses & Budget
+            Student Expenses &amp; Budget ({isRupees ? '₹ INR' : '$ USD'})
           </h1>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Track textbooks, dining, coffee runs, and daily safe spend pacing against your monthly allowance.
+            Track textbooks, mess &amp; dining, coffee runs, and daily safe spend pacing in{' '}
+            {isRupees ? 'Indian Rupees (₹)' : 'US Dollars ($)'}.
           </p>
         </div>
 
-        {editingBudget ? (
-          <form onSubmit={handleSaveBudget} className="flex items-center gap-2">
-            <label htmlFor="monthly-budget-input" className="text-xs font-mono text-zinc-500">
-              Cap ({data.currency}):
-            </label>
-            <input
-              id="monthly-budget-input"
-              type="number"
-              min="50"
-              value={budgetInput}
-              onChange={(e) => setBudgetInput(e.target.value)}
-              className="w-28 px-3 py-2 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-xs font-mono text-zinc-950 dark:text-white"
-            />
-            <button
-              type="submit"
-              className="flex items-center gap-1 px-4 py-2 rounded-2xl bg-zinc-950 text-white dark:bg-white dark:text-black text-xs font-semibold"
-            >
-              <Check className="w-3.5 h-3.5" />
-              <span>Save</span>
-            </button>
-          </form>
-        ) : (
-          <button
-            type="button"
-            onClick={() => {
-              setBudgetInput(String(data.monthlyBudget));
-              setEditingBudget(true);
-            }}
-            className="px-4 py-2.5 rounded-full border border-zinc-300 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-xs font-mono font-semibold text-zinc-800 dark:text-zinc-200 hover:border-zinc-500 transition w-fit"
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Interactive Currency Selector (₹ INR / $ USD) */}
+          <div
+            role="group"
+            aria-label="Select expense currency"
+            className="inline-flex items-center p-1 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800"
           >
-            Monthly Budget: {data.currency}
-            {data.monthlyBudget} (Edit)
-          </button>
-        )}
+            {CURRENCY_OPTIONS.map((opt) => {
+              const active = data.currency === opt.symbol;
+              return (
+                <button
+                  key={opt.code}
+                  type="button"
+                  onClick={() => handleSelectCurrency(opt.symbol)}
+                  aria-pressed={active}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold smooth-spring whitespace-nowrap shrink-0 flex items-center gap-1 ${
+                    active
+                      ? 'glossy-active-tab'
+                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white'
+                  }`}
+                >
+                  <span className="font-sans">{opt.symbol}</span>
+                  <span className="font-mono">{opt.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {editingBudget ? (
+            <form onSubmit={handleSaveBudget} className="flex items-center gap-2">
+              <label htmlFor="monthly-budget-input" className="text-xs font-sans text-zinc-500">
+                Cap ({data.currency}):
+              </label>
+              <input
+                id="monthly-budget-input"
+                type="number"
+                min="50"
+                value={budgetInput}
+                onChange={(e) => setBudgetInput(e.target.value)}
+                className="w-28 px-3 py-2 rounded-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-xs font-mono text-zinc-950 dark:text-white"
+              />
+              <button
+                type="submit"
+                className="flex items-center gap-1 px-4 py-2 rounded-full glossy-active-tab text-xs font-semibold smooth-spring"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Save</span>
+              </button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setBudgetInput(String(data.monthlyBudget));
+                setEditingBudget(true);
+              }}
+              className="px-4 py-2 rounded-full border border-zinc-300 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-xs font-semibold text-zinc-800 dark:text-zinc-200 hover:border-zinc-500 smooth-spring w-fit whitespace-nowrap shrink-0"
+            >
+              <span>Monthly Budget: </span>
+              <span className="font-sans">{data.currency}</span>
+              <span className="font-mono">{data.monthlyBudget.toLocaleString('en-IN')}</span>
+              <span> (Edit)</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Top 4 Financial KPI Cards (Including Daily Safe Spend Burn-Rate) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 sm:p-6 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
+        <div className="p-5 sm:p-6 rounded-3xl pro-surface">
           <span className="text-xs text-zinc-500 dark:text-zinc-400">Total Spent This Month</span>
-          <p className="mt-1 text-2xl sm:text-3xl font-extrabold font-mono text-zinc-950 dark:text-white">
-            {data.currency}
+          <p className="mt-1 text-2xl sm:text-3xl font-extrabold font-mono text-zinc-950 dark:text-white tabular-nums">
+            <span className="font-sans">{data.currency}</span>
             {summary.totalSpent.toFixed(2)}
           </p>
           <span className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -182,10 +239,10 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
           </span>
         </div>
 
-        <div className="p-5 sm:p-6 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
+        <div className="p-5 sm:p-6 rounded-3xl pro-surface">
           <span className="text-xs text-zinc-500 dark:text-zinc-400">Remaining Allowance</span>
-          <p className="mt-1 text-2xl sm:text-3xl font-extrabold font-mono text-zinc-950 dark:text-white">
-            {data.currency}
+          <p className="mt-1 text-2xl sm:text-3xl font-extrabold font-mono text-zinc-950 dark:text-white tabular-nums">
+            <span className="font-sans">{data.currency}</span>
             {summary.remaining.toFixed(2)}
           </p>
           <span className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -193,10 +250,10 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
           </span>
         </div>
 
-        <div className="p-5 sm:p-6 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
+        <div className="p-5 sm:p-6 rounded-3xl pro-surface">
           <span className="text-xs text-zinc-500 dark:text-zinc-400">Daily Safe Spend Limit</span>
-          <p className="mt-1 text-2xl sm:text-3xl font-extrabold font-mono text-zinc-950 dark:text-white">
-            {data.currency}
+          <p className="mt-1 text-2xl sm:text-3xl font-extrabold font-mono text-zinc-950 dark:text-white tabular-nums">
+            <span className="font-sans">{data.currency}</span>
             {summary.dailySafeSpend.toFixed(2)}
             <span className="text-sm font-normal text-zinc-400">/day</span>
           </p>
@@ -205,13 +262,13 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
           </span>
         </div>
 
-        <div className="p-5 sm:p-6 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
+        <div className="p-5 sm:p-6 rounded-3xl pro-surface">
           <span className="text-xs text-zinc-500 dark:text-zinc-400">Logged Transactions</span>
-          <p className="mt-1 text-2xl sm:text-3xl font-extrabold font-mono text-zinc-950 dark:text-white">
+          <p className="mt-1 text-2xl sm:text-3xl font-extrabold font-mono text-zinc-950 dark:text-white tabular-nums">
             {data.expenses.length}
           </p>
           <span className="text-xs text-zinc-500 dark:text-zinc-400">
-            Avg {data.currency}
+            Avg <span className="font-sans">{data.currency}</span>
             {data.expenses.length > 0
               ? (summary.totalSpent / data.expenses.length).toFixed(2)
               : '0.00'}{' '}
@@ -223,15 +280,17 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
       {/* Gemini Natural-Language Expense Parser */}
       <form
         onSubmit={handleSmartParse}
-        className="p-5 sm:p-6 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-3"
+        className="p-5 sm:p-6 rounded-3xl pro-surface space-y-3"
       >
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-xs font-mono text-zinc-600 dark:text-zinc-300">
+          <div className="flex items-center gap-2 text-xs font-medium text-zinc-600 dark:text-zinc-300">
             <Sparkles className="w-3.5 h-3.5 text-zinc-950 dark:text-white" />
-            <span>Gemini Smart Expense Parser & Budget Coach</span>
+            <span>
+              Gemini Smart Expense Parser &amp; Budget Coach ({data.currency})
+            </span>
           </div>
-          <span className="text-[11px] font-mono text-zinc-400">
-            Multi-item natural language input
+          <span className="text-[11px] text-zinc-400">
+            Supports ₹, Rs, INR &amp; multi-item input
           </span>
         </div>
 
@@ -241,13 +300,17 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
             required
             value={smartExpenseText}
             onChange={(e) => setSmartExpenseText(e.target.value)}
-            placeholder='Try: "Spent 14.50 on late night ramen and 42 on physics lab manual"'
-            className="flex-1 px-4 py-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs sm:text-sm text-zinc-950 dark:text-white placeholder-zinc-400 focus:outline-none focus:border-zinc-950 dark:focus:border-white"
+            placeholder={
+              isRupees
+                ? 'Try: "Spent ₹160 on masala dosa lunch and ₹520 on physics lab manual"'
+                : 'Try: "Spent $14.50 on late night ramen and $42 on physics lab manual"'
+            }
+            className="flex-1 px-4 py-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs sm:text-sm text-zinc-950 dark:text-white placeholder-zinc-400 focus:outline-none focus:border-zinc-950 dark:focus:border-white smooth-spring"
           />
           <button
             type="submit"
             disabled={isParsingExpenses}
-            className="px-5 py-2.5 rounded-2xl bg-zinc-950 text-white dark:bg-white dark:text-black text-xs font-semibold hover:opacity-90 transition flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
+            className="px-5 py-2.5 rounded-2xl glossy-active-tab text-xs font-semibold hover:opacity-95 smooth-spring flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50 whitespace-nowrap"
           >
             {isParsingExpenses ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -259,7 +322,7 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
         </div>
 
         {coachAdvice && (
-          <p className="text-xs font-mono text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800">
+          <p className="text-xs font-sans text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800">
             {coachAdvice}
           </p>
         )}
@@ -271,10 +334,10 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
           {/* Manual Add Expense Form */}
           <form
             onSubmit={handleAddExpense}
-            className="p-6 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-4"
+            className="p-6 rounded-3xl pro-surface space-y-4"
           >
-            <div className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
-              Log Single Campus or Living Expense
+            <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              Log Single Campus or Living Expense ({data.currency})
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
               <input
@@ -282,7 +345,7 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
                 required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Description (e.g. Calculus Workbook, Campus Lunch)..."
+                placeholder="Description (e.g. Engineering Mathematics Book, Canteen Thali)..."
                 className="sm:col-span-8 px-3.5 py-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs sm:text-sm text-zinc-950 dark:text-white placeholder-zinc-400 focus:outline-none"
               />
               <input
@@ -293,7 +356,7 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder={`${data.currency}0.00`}
-                className="sm:col-span-4 px-3.5 py-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs sm:text-sm font-mono text-zinc-950 dark:text-white placeholder-zinc-400 focus:outline-none"
+                className="sm:col-span-4 px-3.5 py-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs sm:text-sm font-sans tabular-nums text-zinc-950 dark:text-white placeholder-zinc-400 focus:outline-none"
               />
               <select
                 aria-label="Expense category"
@@ -317,7 +380,7 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
               <button
                 type="submit"
                 aria-label="Add Expense"
-                className="sm:col-span-3 px-4 py-2.5 rounded-2xl bg-zinc-950 text-white dark:bg-white dark:text-black text-xs font-semibold hover:opacity-90 transition flex items-center justify-center gap-1.5"
+                className="sm:col-span-3 px-4 py-2.5 rounded-2xl glossy-active-tab text-xs font-semibold hover:opacity-95 smooth-spring flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0"
               >
                 <Plus className="w-4 h-4" />
                 <span>Add Item</span>
@@ -330,7 +393,7 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
             <button
               type="button"
               onClick={() => setSelectedCategoryFilter('all')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-medium transition whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-medium smooth-spring whitespace-nowrap shrink-0 ${
                 selectedCategoryFilter === 'all'
                   ? 'bg-white dark:bg-zinc-950 text-zinc-950 dark:text-white font-semibold shadow-sm'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white'
@@ -343,7 +406,7 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
                 key={cat}
                 type="button"
                 onClick={() => setSelectedCategoryFilter(cat)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-medium transition whitespace-nowrap ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium smooth-spring whitespace-nowrap shrink-0 ${
                   selectedCategoryFilter === cat
                     ? 'bg-white dark:bg-zinc-950 text-zinc-950 dark:text-white font-semibold shadow-sm'
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white'
@@ -355,11 +418,11 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
           </div>
 
           {/* Expense Ledger List */}
-          <div className="rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-200 dark:divide-zinc-900 overflow-hidden">
+          <div className="rounded-3xl pro-surface divide-y divide-zinc-200 dark:divide-zinc-900 overflow-hidden">
             {filteredExpenses.map((item) => (
               <div
                 key={item.id}
-                className="p-4 sm:p-5 flex items-center justify-between gap-4 hover:bg-zinc-100/60 dark:hover:bg-zinc-900/40 transition"
+                className="p-4 sm:p-5 flex items-center justify-between gap-4 hover:bg-zinc-100/60 dark:hover:bg-zinc-900/40 smooth-spring"
               >
                 <div className="space-y-0.5 min-w-0">
                   <p className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white truncate">
@@ -373,15 +436,15 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0">
-                  <span className="text-sm sm:text-base font-bold font-mono text-zinc-950 dark:text-white">
-                    {data.currency}
+                  <span className="text-sm sm:text-base font-bold font-mono text-zinc-950 dark:text-white tabular-nums">
+                    <span className="font-sans">{data.currency}</span>
                     {item.amount.toFixed(2)}
                   </span>
                   <button
                     type="button"
                     onClick={() => handleDeleteExpense(item.id)}
                     aria-label={`Delete expense ${item.title}`}
-                    className="p-2 text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition"
+                    className="p-2 text-zinc-400 hover:text-zinc-950 dark:hover:text-white smooth-spring"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -398,14 +461,15 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
         </div>
 
         {/* Right 5 Cols: Spending by Category */}
-        <section className="lg:col-span-5 p-6 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-5">
+        <section className="lg:col-span-5 p-6 rounded-3xl pro-surface space-y-5">
           <div>
             <h2 className="text-base font-bold text-zinc-950 dark:text-white">
               Category Breakdown
             </h2>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Proportion of monthly student budget ({data.currency}
-              {data.monthlyBudget})
+              Proportion of monthly student budget (
+              <span className="font-sans">{data.currency}</span>
+              <span className="font-mono">{data.monthlyBudget.toLocaleString('en-IN')}</span>)
             </p>
           </div>
 
@@ -421,8 +485,8 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
                 <div key={cat} className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-medium text-zinc-700 dark:text-zinc-300">{cat}</span>
-                    <span className="font-mono font-semibold text-zinc-950 dark:text-white">
-                      {data.currency}
+                    <span className="font-mono font-semibold text-zinc-950 dark:text-white tabular-nums">
+                      <span className="font-sans">{data.currency}</span>
                       {catSpent.toFixed(2)} ({pct}%)
                     </span>
                   </div>

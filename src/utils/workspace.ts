@@ -14,14 +14,14 @@ export const DEFAULT_CHECKIN_RESPONSES: StudentCheckinResponses = {
   studyMode: 'exam_prep',
   topGoal: 'Complete Data Structures & Algorithms Problem Set',
   focusInterval: '50m',
-  budgetTarget: '500',
+  budgetTarget: '15000',
   distractionRules: ['phone_away', 'active_recall', 'track_every_expense'],
 };
 
 export const INITIAL_STUDENT_WORKSPACE: StudentWorkspaceData = {
   theme: 'dark',
-  currency: '$',
-  monthlyBudget: 500,
+  currency: '₹',
+  monthlyBudget: 15000,
   dailyPriority: 'Complete Data Structures & Algorithms Problem Set',
   focusCadenceMinutes: 50,
   studyMode: 'exam_prep',
@@ -221,28 +221,28 @@ export const INITIAL_STUDENT_WORKSPACE: StudentWorkspaceData = {
     {
       id: 'ex-1',
       title: 'Used Algorithms Textbook (CLRS 4th Ed.)',
-      amount: 58.0,
+      amount: 1850,
       category: 'Books & Supplies',
       date: '2026-10-18',
     },
     {
       id: 'ex-2',
-      title: 'Campus Dining Hall Weekly Meal Plan Reload',
-      amount: 85.0,
+      title: 'Campus Mess & Dining Hall Weekly Plan',
+      amount: 2400,
       category: 'Food & Dining',
       date: '2026-10-19',
     },
     {
       id: 'ex-3',
       title: 'Student Metro & Bus Monthly Pass',
-      amount: 32.0,
+      amount: 900,
       category: 'Transport',
       date: '2026-10-15',
     },
     {
       id: 'ex-4',
-      title: 'Library Late-Night Espresso & Oat Bar',
-      amount: 6.5,
+      title: 'Library Late-Night Filter Coffee & Snack',
+      amount: 180,
       category: 'Coffee & Snacks',
       date: '2026-10-20',
     },
@@ -724,7 +724,8 @@ export function parseNaturalLanguageExpensesLocally(
   rawText: string,
   monthlyBudget: number,
   totalSpent: number,
-  todayStr: string = '2026-10-20'
+  todayStr: string = '2026-10-20',
+  currency: string = '₹'
 ): { advice: string; items: Omit<ExpenseItem, 'id'>[] } {
   const segments = rawText
     .split(/,|;|\band\b|\+/i)
@@ -735,31 +736,37 @@ export function parseNaturalLanguageExpensesLocally(
 
   const inferCategory = (text: string): ExpenseCategory => {
     const lower = text.toLowerCase();
-    if (/coffee|latte|espresso|tea|snack|matcha|cafe|boba/.test(lower)) {
+    if (/coffee|latte|espresso|tea|chai|snack|matcha|cafe|boba|samosa|biscuit/.test(lower)) {
       return 'Coffee & Snacks';
     }
-    if (/book|textbook|lab|pen|notebook|manual|print|course|supply|goggles/.test(lower)) {
+    if (/book|textbook|lab|pen|notebook|manual|print|xerox|course|supply|goggles|record/.test(lower)) {
       return 'Books & Supplies';
     }
-    if (/bus|metro|train|uber|lyft|gas|transit|pass|ticket/.test(lower)) {
+    if (/bus|metro|train|uber|ola|rapido|auto|rickshaw|lyft|gas|petrol|transit|pass|ticket/.test(lower)) {
       return 'Transport';
     }
-    if (/rent|wifi|electric|utility|laundry|dorm/.test(lower)) {
+    if (/rent|hostel|pg|wifi|recharge|electric|utility|laundry|dorm/.test(lower)) {
       return 'Housing & Utilities';
     }
-    if (/ramen|lunch|dinner|breakfast|food|meal|pizza|burger|grocery|salad|dining/.test(lower)) {
+    if (
+      /ramen|lunch|dinner|breakfast|food|meal|mess|canteen|dosa|idli|biryani|thali|roti|pizza|burger|grocery|salad|dining/.test(
+        lower
+      )
+    ) {
       return 'Food & Dining';
     }
     return 'Other';
   };
 
   for (const seg of segments) {
-    const match = seg.match(/\$?\s*(\d+(?:\.\d{1,2})?)/);
+    const match = seg.match(/(?:₹|rs\.?|inr|\$)?\s*(\d+(?:,\d{3})*(?:\.\d{1,2})?)/i);
     if (match) {
-      const amount = parseFloat(match[1]);
+      const normalizedNumber = match[1].replace(/,/g, '');
+      const amount = parseFloat(normalizedNumber);
       if (amount > 0) {
         let cleanedTitle = seg
           .replace(match[0], '')
+          .replace(/\b(rupees|rupee|rs\.?|inr|dollars|usd)\b/gi, '')
           .replace(/^(spent|paid|bought|for|on|at)\s+/i, '')
           .replace(/\b(on|for|yesterday|today)\b/gi, '')
           .trim();
@@ -782,8 +789,8 @@ export function parseNaturalLanguageExpensesLocally(
   const newRemaining = Number((monthlyBudget - (totalSpent + addedTotal)).toFixed(2));
   const advice =
     newRemaining >= 0
-      ? `Logged ${items.length} item(s) totaling $${addedTotal.toFixed(2)}. You have $${newRemaining.toFixed(2)} remaining in your monthly student cap.`
-      : `Alert: This pushes spending $${Math.abs(newRemaining).toFixed(2)} over your $${monthlyBudget} monthly cap.`;
+      ? `Logged ${items.length} item(s) totaling ${currency}${addedTotal.toFixed(2)}. You have ${currency}${newRemaining.toFixed(2)} remaining in your monthly student cap.`
+      : `Alert: This pushes spending ${currency}${Math.abs(newRemaining).toFixed(2)} over your ${currency}${monthlyBudget} monthly cap.`;
 
   return { advice, items };
 }

@@ -219,7 +219,7 @@ ${content}`,
   // 4. AI Natural-Language Expense Parser & Budget Coach
   app.post('/api/gemini/parse-expenses', async (req, res) => {
     try {
-      const { rawText, monthlyBudget, totalSpent, today } = req.body || {};
+      const { rawText, monthlyBudget, totalSpent, today, currency = '₹' } = req.body || {};
       if (!rawText || typeof rawText !== 'string') {
         res.status(400).json({ error: 'Expense text is required' });
         return;
@@ -233,10 +233,11 @@ ${content}`,
 
       const response = await ai.models.generateContent({
         model: 'gemini-3.8-flash',
-        contents: `Parse the student's natural-language spending description into structured expense items, and provide a 1-sentence budget insight.
+        contents: `Parse the student's natural-language spending description into structured expense items, and provide a 1-sentence budget insight using the currency symbol "${currency}".
 Today's Date: ${today || '2026-10-20'}
-Monthly Budget: ${monthlyBudget}
-Already Spent: ${totalSpent}
+Currency Symbol: ${currency}
+Monthly Budget: ${currency}${monthlyBudget}
+Already Spent: ${currency}${totalSpent}
 Allowed Categories: "Food & Dining", "Books & Supplies", "Coffee & Snacks", "Transport", "Housing & Utilities", "Other"
 
 Student Input: "${rawText}"`,

@@ -109,16 +109,19 @@ test('buildLocalSmartSchedule, decomposeTaskLocally, generateNoteQuizLocally, an
   assert.equal(quiz.flashcards.length, 3);
 
   const parsedExpenses = parseNaturalLanguageExpensesLocally(
-    'Spent 14.50 on late night ramen and 42 on lab goggles',
-    500,
-    181.5,
-    '2026-10-20'
+    'Spent ₹160 on masala dosa lunch and Rs 520 on lab goggles',
+    15000,
+    5330,
+    '2026-10-20',
+    '₹'
   );
+  assert.equal(INITIAL_STUDENT_WORKSPACE.currency, '₹');
   assert.equal(parsedExpenses.items.length, 2);
-  assert.equal(parsedExpenses.items[0].amount, 14.5);
+  assert.equal(parsedExpenses.items[0].amount, 160);
   assert.equal(parsedExpenses.items[0].category, 'Food & Dining');
-  assert.equal(parsedExpenses.items[1].amount, 42);
+  assert.equal(parsedExpenses.items[1].amount, 520);
   assert.equal(parsedExpenses.items[1].category, 'Books & Supplies');
+  assert.ok(parsedExpenses.advice.includes('₹680.00'));
 });
 
 test('formatTimeLeft and getWordCount compute expected strings and counts', () => {
