@@ -6,16 +6,22 @@ import {
   applyCheckinToWorkspace,
   formatTimeLeft,
   getWordCount,
+  calculateDaysUntil,
+  buildLocalSmartSchedule,
+  decomposeTaskLocally,
+  generateNoteQuizLocally,
+  parseNaturalLanguageExpensesLocally,
   INITIAL_STUDENT_WORKSPACE,
 } from './workspace.ts';
 
-test('calculateExpenseSummary accurately computes spent, remaining, and categories', () => {
+test('calculateExpenseSummary accurately computes spent, remaining, dailySafeSpend, and categories', () => {
   const summary = calculateExpenseSummary(
     [
       { id: '1', title: 'Calculus Book', amount: 40, category: 'Books & Supplies', date: '2026-10-20' },
       { id: '2', title: 'Lunch', amount: 12.5, category: 'Food & Dining', date: '2026-10-20' },
     ],
-    200
+    200,
+    '2026-10-20'
   );
 
   assert.equal(summary.totalSpent, 52.5);
@@ -24,6 +30,20 @@ test('calculateExpenseSummary accurately computes spent, remaining, and categori
   assert.equal(summary.isOverBudget, false);
   assert.equal(summary.byCategory['Books & Supplies'], 40);
   assert.equal(summary.byCategory['Food & Dining'], 12.5);
+  assert.equal(summary.daysRemainingInMonth, 12);
+  assert.equal(summary.dailySafeSpend, 12.29);
+});
+
+test('calculateDaysUntil calculates accurate exam countdowns and urgency', () => {
+  const urgent = calculateDaysUntil('2026-10-24', '2026-10-20');
+  assert.equal(urgent.days, 4);
+  assert.equal(urgent.label, '4d left');
+  assert.equal(urgent.isUrgent, true);
+
+  const nonUrgent = calculateDaysUntil('2026-11-02', '2026-10-20');
+  assert.equal(nonUrgent.days, 13);
+  assert.equal(nonUrgent.label, '13d left');
+  assert.equal(nonUrgent.isUrgent, false);
 });
 
 test('calculateStudyMetrics calculates weighted GPA, hours, and topic mastery', () => {
@@ -58,7 +78,7 @@ test('calculateStudyMetrics calculates weighted GPA, hours, and topic mastery', 
   assert.equal(metrics.estimatedGpa, '3.50');
 });
 
-test('applyCheckinToWorkspace updates daily priority, budget, and adds high-priority task', () => {
+test('applyCheckinToWorkspace updates daily priority, budget, and regenerates schedule blocks', () => {
   const updated = applyCheckinToWorkspace(INITIAL_STUDENT_WORKSPACE, {
     studyMode: 'assignments',
     topGoal: 'Finish Operating Systems Page Table Lab',
@@ -71,6 +91,34 @@ test('applyCheckinToWorkspace updates daily priority, budget, and adds high-prio
   assert.equal(updated.focusCadenceMinutes, 90);
   assert.equal(updated.monthlyBudget, 800);
   assert.equal(updated.tasks[0].title, 'Finish Operating Systems Page Table Lab');
+  assert.ok(updated.scheduleBlocks.length >= 4);
+  assert.equal(updated.scheduleBlocks[0].durationMinutes, 90);
+});
+
+test('buildLocalSmartSchedule, decomposeTaskLocally, generateNoteQuizLocally, and parseNaturalLanguageExpensesLocally work deterministically', () => {
+  const schedule = buildLocalSmartSchedule(INITIAL_STUDENT_WORKSPACE, '09:00');
+  assert.equal(schedule.blocks[0].startTime, '09:00');
+  assert.ok(schedule.blocks.length >= 4);
+
+  const subtasks = decomposeTaskLocally('Build Compiler Lexer', 'CS-301', 50);
+  assert.equal(subtasks.length, 3);
+  assert.equal(subtasks[1].estimatedMinutes, 50);
+
+  const quiz = generateNoteQuizLocally('Master Theorem', 'CS-301', INITIAL_STUDENT_WORKSPACE.notes[0].content);
+  assert.equal(quiz.summaryBullets.length, 3);
+  assert.equal(quiz.flashcards.length, 3);
+
+  const parsedExpenses = parseNaturalLanguageExpensesLocally(
+    'Spent 14.50 on late night ramen and 42 on lab goggles',
+    500,
+    181.5,
+    '2026-10-20'
+  );
+  assert.equal(parsedExpenses.items.length, 2);
+  assert.equal(parsedExpenses.items[0].amount, 14.5);
+  assert.equal(parsedExpenses.items[0].category, 'Food & Dining');
+  assert.equal(parsedExpenses.items[1].amount, 42);
+  assert.equal(parsedExpenses.items[1].category, 'Books & Supplies');
 });
 
 test('formatTimeLeft and getWordCount compute expected strings and counts', () => {

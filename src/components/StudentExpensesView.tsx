@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Check } from 'lucide-react';
+import { Plus, Trash2, Check, Sparkles, Loader2 } from 'lucide-react';
 import type {
   ExpenseCategory,
   ExpenseItem,
   StudentWorkspaceData,
 } from '../types/index.ts';
 import { calculateExpenseSummary } from '../utils/workspace.ts';
+import { requestSmartExpenseParse } from '../utils/aiClient.ts';
 
 interface StudentExpensesViewProps {
   data: StudentWorkspaceData;
@@ -28,11 +29,15 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<ExpenseCategory>('Food & Dining');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState('2026-10-20');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
 
   const [editingBudget, setEditingBudget] = useState(false);
   const [budgetInput, setBudgetInput] = useState(String(data.monthlyBudget));
+
+  const [smartExpenseText, setSmartExpenseText] = useState('');
+  const [isParsingExpenses, setIsParsingExpenses] = useState(false);
+  const [coachAdvice, setCoachAdvice] = useState<string | null>(null);
 
   const summary = calculateExpenseSummary(data.expenses, data.monthlyBudget);
 
@@ -63,6 +68,40 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
     setAmount('');
   };
 
+  const handleSmartParse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!smartExpenseText.trim()) return;
+
+    setIsParsingExpenses(true);
+    try {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const res = await requestSmartExpenseParse(
+        smartExpenseText.trim(),
+        data.monthlyBudget,
+        summary.totalSpent,
+        todayStr
+      );
+      if (res.items.length > 0) {
+        const created: ExpenseItem[] = res.items.map((item, idx) => ({
+          id: `ex-ai-${Date.now()}-${idx}`,
+          ...item,
+        }));
+        onUpdateData((prev) => ({
+          ...prev,
+          expenses: [...created, ...prev.expenses],
+        }));
+        setCoachAdvice(res.advice);
+        setSmartExpenseText('');
+      } else {
+        setCoachAdvice(
+          'Include a number amount in your text (e.g. "Spent 12.50 on lunch and 28 on calculus book").'
+        );
+      }
+    } finally {
+      setIsParsingExpenses(false);
+    }
+  };
+
   const handleDeleteExpense = (id: string) => {
     onUpdateData((prev) => ({
       ...prev,
@@ -90,7 +129,7 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
             Student Expenses & Budget
           </h1>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Track textbooks, dining, coffee runs, and transit against your monthly allowance.
+            Track textbooks, dining, coffee runs, and daily safe spend pacing against your monthly allowance.
           </p>
         </div>
 
@@ -130,11 +169,11 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
         )}
       </div>
 
-      {/* Top 3 Financial KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-6 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
+      {/* Top 4 Financial KPI Cards (Including Daily Safe Spend Burn-Rate) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="p-5 sm:p-6 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
           <span className="text-xs text-zinc-500 dark:text-zinc-400">Total Spent This Month</span>
-          <p className="mt-1 text-3xl font-extrabold font-mono text-zinc-950 dark:text-white">
+          <p className="mt-1 text-2xl sm:text-3xl font-extrabold font-mono text-zinc-950 dark:text-white">
             {data.currency}
             {summary.totalSpent.toFixed(2)}
           </p>
@@ -143,9 +182,9 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
           </span>
         </div>
 
-        <div className="p-6 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
+        <div className="p-5 sm:p-6 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
           <span className="text-xs text-zinc-500 dark:text-zinc-400">Remaining Allowance</span>
-          <p className="mt-1 text-3xl font-extrabold font-mono text-zinc-950 dark:text-white">
+          <p className="mt-1 text-2xl sm:text-3xl font-extrabold font-mono text-zinc-950 dark:text-white">
             {data.currency}
             {summary.remaining.toFixed(2)}
           </p>
@@ -154,9 +193,21 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
           </span>
         </div>
 
-        <div className="p-6 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
+        <div className="p-5 sm:p-6 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">Daily Safe Spend Limit</span>
+          <p className="mt-1 text-2xl sm:text-3xl font-extrabold font-mono text-zinc-950 dark:text-white">
+            {data.currency}
+            {summary.dailySafeSpend.toFixed(2)}
+            <span className="text-sm font-normal text-zinc-400">/day</span>
+          </p>
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            Across {summary.daysRemainingInMonth} remaining days
+          </span>
+        </div>
+
+        <div className="p-5 sm:p-6 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
           <span className="text-xs text-zinc-500 dark:text-zinc-400">Logged Transactions</span>
-          <p className="mt-1 text-3xl font-extrabold font-mono text-zinc-950 dark:text-white">
+          <p className="mt-1 text-2xl sm:text-3xl font-extrabold font-mono text-zinc-950 dark:text-white">
             {data.expenses.length}
           </p>
           <span className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -169,16 +220,61 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
         </div>
       </div>
 
+      {/* Gemini Natural-Language Expense Parser */}
+      <form
+        onSubmit={handleSmartParse}
+        className="p-5 sm:p-6 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-3"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-xs font-mono text-zinc-600 dark:text-zinc-300">
+            <Sparkles className="w-3.5 h-3.5 text-zinc-950 dark:text-white" />
+            <span>Gemini Smart Expense Parser & Budget Coach</span>
+          </div>
+          <span className="text-[11px] font-mono text-zinc-400">
+            Multi-item natural language input
+          </span>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-2.5">
+          <input
+            type="text"
+            required
+            value={smartExpenseText}
+            onChange={(e) => setSmartExpenseText(e.target.value)}
+            placeholder='Try: "Spent 14.50 on late night ramen and 42 on physics lab manual"'
+            className="flex-1 px-4 py-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs sm:text-sm text-zinc-950 dark:text-white placeholder-zinc-400 focus:outline-none focus:border-zinc-950 dark:focus:border-white"
+          />
+          <button
+            type="submit"
+            disabled={isParsingExpenses}
+            className="px-5 py-2.5 rounded-2xl bg-zinc-950 text-white dark:bg-white dark:text-black text-xs font-semibold hover:opacity-90 transition flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
+          >
+            {isParsingExpenses ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="w-3.5 h-3.5" />
+            )}
+            <span>{isParsingExpenses ? 'Parsing...' : 'Parse & Log with AI'}</span>
+          </button>
+        </div>
+
+        {coachAdvice && (
+          <p className="text-xs font-mono text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800">
+            {coachAdvice}
+          </p>
+        )}
+      </form>
+
       {/* Main Split: Log & Ledger on Left, Category Breakdown on Right */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         <div className="lg:col-span-7 space-y-6">
-          {/* Add Expense Form */}
+          {/* Manual Add Expense Form */}
           <form
             onSubmit={handleAddExpense}
             className="p-6 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-4"
           >
             <div className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
-              Log Campus or Living Expense
+              Log Single Campus or Living Expense
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
               <input
@@ -186,8 +282,8 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
                 required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Description (e.g. Calculus Workbook, Matcha Latte)..."
-                className="sm:col-span-5 px-4 py-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-sm text-zinc-950 dark:text-white placeholder-zinc-400 focus:outline-none"
+                placeholder="Description (e.g. Calculus Workbook, Campus Lunch)..."
+                className="sm:col-span-8 px-3.5 py-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs sm:text-sm text-zinc-950 dark:text-white placeholder-zinc-400 focus:outline-none"
               />
               <input
                 type="number"
@@ -197,13 +293,13 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder={`${data.currency}0.00`}
-                className="sm:col-span-2 px-3 py-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs font-mono text-zinc-950 dark:text-white placeholder-zinc-400 focus:outline-none"
+                className="sm:col-span-4 px-3.5 py-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs sm:text-sm font-mono text-zinc-950 dark:text-white placeholder-zinc-400 focus:outline-none"
               />
               <select
                 aria-label="Expense category"
                 value={category}
                 onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
-                className="sm:col-span-3 px-3 py-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs text-zinc-900 dark:text-white"
+                className="sm:col-span-5 px-3 py-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs text-zinc-900 dark:text-white"
               >
                 {CATEGORIES.map((cat) => (
                   <option key={cat} value={cat}>
@@ -211,12 +307,20 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
                   </option>
                 ))}
               </select>
+              <input
+                type="date"
+                aria-label="Expense date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="sm:col-span-4 px-3 py-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs font-mono text-zinc-900 dark:text-white"
+              />
               <button
                 type="submit"
-                className="sm:col-span-2 px-4 py-2.5 rounded-2xl bg-zinc-950 text-white dark:bg-white dark:text-black text-xs font-semibold hover:opacity-90 transition flex items-center justify-center gap-1"
+                aria-label="Add Expense"
+                className="sm:col-span-3 px-4 py-2.5 rounded-2xl bg-zinc-950 text-white dark:bg-white dark:text-black text-xs font-semibold hover:opacity-90 transition flex items-center justify-center gap-1.5"
               >
                 <Plus className="w-4 h-4" />
-                <span>Add</span>
+                <span>Add Item</span>
               </button>
             </div>
           </form>

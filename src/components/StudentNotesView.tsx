@@ -1,7 +1,19 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Pin, Copy, Check, Search } from 'lucide-react';
+import {
+  Plus,
+  Trash2,
+  Pin,
+  Copy,
+  Check,
+  Search,
+  Sparkles,
+  Loader2,
+  Eye,
+  Edit3,
+} from 'lucide-react';
 import type { StudentWorkspaceData, StudyNote } from '../types/index.ts';
 import { getWordCount } from '../utils/workspace.ts';
+import { requestNoteActiveRecall } from '../utils/aiClient.ts';
 
 interface StudentNotesViewProps {
   data: StudentWorkspaceData;
@@ -18,6 +30,9 @@ export const StudentNotesView: React.FC<StudentNotesViewProps> = ({
   const [courseFilter, setCourseFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [copied, setCopied] = useState(false);
+  const [viewMode, setViewMode] = useState<'edit' | 'preview'>('edit');
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+  const [revealedCards, setRevealedCards] = useState<Record<string, boolean>>({});
 
   const courseCodes = Array.from(
     new Set([...data.courses.map((c) => c.code), ...data.notes.map((n) => n.course)])
@@ -56,6 +71,7 @@ export const StudentNotesView: React.FC<StudentNotesViewProps> = ({
       notes: [newNote, ...prev.notes],
     }));
     setSelectedNoteId(newNote.id);
+    setViewMode('edit');
   };
 
   const handleUpdateActiveNote = (patch: Partial<StudyNote>) => {
@@ -67,6 +83,29 @@ export const StudentNotesView: React.FC<StudentNotesViewProps> = ({
         n.id === activeNote.id ? { ...n, ...patch, updatedAt: today } : n
       ),
     }));
+  };
+
+  const handleGenerateActiveRecall = async () => {
+    if (!activeNote || !activeNote.content.trim()) return;
+    setIsGeneratingQuiz(true);
+    try {
+      const res = await requestNoteActiveRecall(
+        activeNote.title,
+        activeNote.course,
+        activeNote.content
+      );
+      handleUpdateActiveNote({
+        summaryBullets: res.summaryBullets,
+        flashcards: res.flashcards,
+      });
+      setRevealedCards({});
+    } finally {
+      setIsGeneratingQuiz(false);
+    }
+  };
+
+  const toggleRevealCard = (cardId: string) => {
+    setRevealedCards((prev) => ({ ...prev, [cardId]: !prev[cardId] }));
   };
 
   const handleDeleteNote = (id: string) => {
@@ -102,10 +141,10 @@ export const StudentNotesView: React.FC<StudentNotesViewProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-950 dark:text-white tracking-tight">
-            Lecture Notes & Revision Sheets
+            Lecture Notes & Active Recall
           </h1>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Consolidate class notes, formulas, and reading summaries organized by course code.
+            Consolidate class notes, switch to clean revision preview, and generate active recall flashcards with Gemini.
           </p>
         </div>
 
@@ -189,6 +228,12 @@ export const StudentNotesView: React.FC<StudentNotesViewProps> = ({
                     <span>{note.course}</span>
                     <span aria-hidden="true">·</span>
                     <span>{note.updatedAt}</span>
+                    {note.flashcards && note.flashcards.length > 0 && (
+                      <>
+                        <span aria-hidden="true">·</span>
+                        <span>{note.flashcards.length} cards</span>
+                      </>
+                    )}
                   </div>
                 </button>
               );
@@ -196,89 +241,223 @@ export const StudentNotesView: React.FC<StudentNotesViewProps> = ({
           </div>
         </div>
 
-        {/* Right 8 Cols: Active Note Editor */}
-        <div className="lg:col-span-8">
+        {/* Right 8 Cols: Active Note Editor + Active Recall Deck */}
+        <div className="lg:col-span-8 space-y-6">
           {activeNote ? (
-            <div className="p-6 sm:p-8 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-200 dark:border-zinc-900 pb-4">
-                <input
-                  type="text"
-                  aria-label="Note title"
-                  value={activeNote.title}
-                  onChange={(e) => handleUpdateActiveNote({ title: e.target.value })}
-                  className="text-xl sm:text-2xl font-extrabold bg-transparent text-zinc-950 dark:text-white focus:outline-none flex-1"
-                />
+            <>
+              <div className="p-6 sm:p-8 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-5">
+                <div className="space-y-3 border-b border-zinc-200 dark:border-zinc-900 pb-4">
+                  <input
+                    type="text"
+                    aria-label="Note title"
+                    value={activeNote.title}
+                    onChange={(e) => handleUpdateActiveNote({ title: e.target.value })}
+                    className="w-full text-xl sm:text-2xl font-extrabold bg-transparent text-zinc-950 dark:text-white focus:outline-none"
+                  />
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <select
-                    aria-label="Note course"
-                    value={activeNote.course}
-                    onChange={(e) => handleUpdateActiveNote({ course: e.target.value })}
-                    className="px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs font-mono text-zinc-950 dark:text-white"
-                  >
-                    {courseCodes.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                    <option value="GENERAL">GENERAL</option>
-                  </select>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setViewMode(viewMode === 'edit' ? 'preview' : 'edit')
+                      }
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:border-zinc-500 transition"
+                    >
+                      {viewMode === 'edit' ? (
+                        <>
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Study View</span>
+                        </>
+                      ) : (
+                        <>
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Edit Note</span>
+                        </>
+                      )}
+                    </button>
+
+                    <select
+                      aria-label="Note course"
+                      value={activeNote.course}
+                      onChange={(e) => handleUpdateActiveNote({ course: e.target.value })}
+                      className="px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs font-mono text-zinc-950 dark:text-white"
+                    >
+                      {courseCodes.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                      <option value="GENERAL">GENERAL</option>
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleUpdateActiveNote({ isPinned: !activeNote.isPinned })
+                      }
+                      aria-label={activeNote.isPinned ? 'Unpin note' : 'Pin note'}
+                      className={`p-2 rounded-xl border transition ${
+                        activeNote.isPinned
+                          ? 'bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-black dark:border-white'
+                          : 'border-zinc-300 dark:border-zinc-800 text-zinc-500 hover:text-zinc-950 dark:hover:text-white'
+                      }`}
+                    >
+                      <Pin className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleCopyNote}
+                      aria-label="Copy note markdown"
+                      className="p-2 rounded-xl border border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white transition"
+                    >
+                      {copied ? (
+                        <Check className="w-3.5 h-3.5" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteNote(activeNote.id)}
+                      aria-label={`Delete note ${activeNote.title}`}
+                      className="p-2 rounded-xl border border-zinc-300 dark:border-zinc-800 text-zinc-500 hover:text-zinc-950 dark:hover:text-white transition"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {viewMode === 'edit' ? (
+                  <textarea
+                    aria-label="Note content"
+                    rows={11}
+                    value={activeNote.content}
+                    onChange={(e) => handleUpdateActiveNote({ content: e.target.value })}
+                    placeholder="Write lecture notes, proofs, or study guides..."
+                    className="w-full bg-transparent text-sm sm:text-base font-mono text-zinc-800 dark:text-zinc-200 leading-relaxed focus:outline-none resize-y"
+                  />
+                ) : (
+                  <div className="py-2 space-y-3 text-sm sm:text-base text-zinc-800 dark:text-zinc-200 leading-relaxed">
+                    {activeNote.content.split('\n').map((line, idx) => {
+                      const trimmed = line.trim();
+                      if (!trimmed) return <div key={idx} className="h-2" />;
+                      if (trimmed.startsWith('- ') || /^\d+\./.test(trimmed)) {
+                        return (
+                          <div
+                            key={idx}
+                            className="pl-4 border-l-2 border-zinc-300 dark:border-zinc-700 font-mono text-xs sm:text-sm"
+                          >
+                            {trimmed}
+                          </div>
+                        );
+                      }
+                      return (
+                        <p key={idx} className="font-sans">
+                          {trimmed}
+                        </p>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div className="pt-3 border-t border-zinc-200 dark:border-zinc-900 flex flex-wrap items-center justify-between gap-3 text-xs font-mono text-zinc-500 dark:text-zinc-400">
+                  <span>
+                    {wordStats.words} words · {wordStats.chars} characters · Updated{' '}
+                    {activeNote.updatedAt}
+                  </span>
 
                   <button
                     type="button"
-                    onClick={() =>
-                      handleUpdateActiveNote({ isPinned: !activeNote.isPinned })
-                    }
-                    aria-label={activeNote.isPinned ? 'Unpin note' : 'Pin note'}
-                    className={`p-2 rounded-xl border transition ${
-                      activeNote.isPinned
-                        ? 'bg-zinc-950 text-white border-zinc-950 dark:bg-white dark:text-black dark:border-white'
-                        : 'border-zinc-300 dark:border-zinc-800 text-zinc-500 hover:text-zinc-950 dark:hover:text-white'
-                    }`}
+                    disabled={isGeneratingQuiz}
+                    onClick={handleGenerateActiveRecall}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-black text-xs font-sans font-semibold hover:opacity-90 transition disabled:opacity-50"
                   >
-                    <Pin className="w-3.5 h-3.5" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleCopyNote}
-                    aria-label="Copy note markdown"
-                    className="p-2 rounded-xl border border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white transition"
-                  >
-                    {copied ? (
-                      <Check className="w-3.5 h-3.5" />
+                    {isGeneratingQuiz ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : (
-                      <Copy className="w-3.5 h-3.5" />
+                      <Sparkles className="w-3.5 h-3.5" />
                     )}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteNote(activeNote.id)}
-                    aria-label={`Delete note ${activeNote.title}`}
-                    className="p-2 rounded-xl border border-zinc-300 dark:border-zinc-800 text-zinc-500 hover:text-zinc-950 dark:hover:text-white transition"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>
+                      {isGeneratingQuiz
+                        ? 'Synthesizing Quiz...'
+                        : 'Generate Active Recall Quiz'}
+                    </span>
                   </button>
                 </div>
               </div>
 
-              <textarea
-                aria-label="Note content"
-                rows={12}
-                value={activeNote.content}
-                onChange={(e) => handleUpdateActiveNote({ content: e.target.value })}
-                placeholder="Write lecture notes, proofs, or study guides..."
-                className="w-full bg-transparent text-sm sm:text-base font-mono text-zinc-800 dark:text-zinc-200 leading-relaxed focus:outline-none resize-y"
-              />
+              {/* Active Recall Summary Bullets & Flashcards */}
+              {((activeNote.summaryBullets && activeNote.summaryBullets.length > 0) ||
+                (activeNote.flashcards && activeNote.flashcards.length > 0)) && (
+                <div className="p-6 sm:p-8 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-base font-bold text-zinc-950 dark:text-white">
+                        Active Recall Revision Sheet & Flashcards
+                      </h2>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        Tap any question card below to reveal the answer and test your exam readiness
+                      </p>
+                    </div>
+                    <span className="text-xs font-mono text-zinc-500">
+                      {activeNote.course}
+                    </span>
+                  </div>
 
-              <div className="pt-3 border-t border-zinc-200 dark:border-zinc-900 flex items-center justify-between text-xs font-mono text-zinc-500 dark:text-zinc-400">
-                <span>
-                  {wordStats.words} words · {wordStats.chars} characters
-                </span>
-                <span>Updated {activeNote.updatedAt}</span>
-              </div>
-            </div>
+                  {activeNote.summaryBullets && activeNote.summaryBullets.length > 0 && (
+                    <div className="p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-2">
+                      <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">
+                        3-Bullet Exam Synthesis
+                      </span>
+                      <ul className="space-y-1.5 text-xs sm:text-sm text-zinc-800 dark:text-zinc-200">
+                        {activeNote.summaryBullets.map((bullet, idx) => (
+                          <li key={idx} className="flex items-start gap-2">
+                            <span className="font-mono font-bold text-zinc-400">
+                              0{idx + 1}
+                            </span>
+                            <span>{bullet}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {activeNote.flashcards && activeNote.flashcards.length > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {activeNote.flashcards.map((card, idx) => {
+                        const isRevealed = Boolean(revealedCards[card.id]);
+                        return (
+                          <button
+                            key={card.id}
+                            type="button"
+                            onClick={() => toggleRevealCard(card.id)}
+                            className="text-left p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-950 dark:hover:border-white transition flex flex-col justify-between gap-4"
+                          >
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between text-[11px] font-mono text-zinc-400">
+                                <span>CARD 0{idx + 1}</span>
+                                <span>{isRevealed ? 'ANSWER SHOWN' : 'TAP TO REVEAL'}</span>
+                              </div>
+                              <p className="text-sm font-bold text-zinc-950 dark:text-white leading-snug">
+                                {card.question}
+                              </p>
+                            </div>
+
+                            {isRevealed && (
+                              <div className="pt-3 border-t border-zinc-200 dark:border-zinc-800 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                                {card.answer}
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           ) : (
             <div className="p-12 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-center space-y-3">
               <p className="text-sm text-zinc-500">

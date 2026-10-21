@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
-import { Download, RotateCcw } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Download, RotateCcw, Upload, FileJson } from 'lucide-react';
 import type {
   StudentCheckinResponses,
   StudentTab,
@@ -28,8 +28,8 @@ import { StudentExpensesView } from './components/StudentExpensesView.tsx';
 import { StudentNotesView } from './components/StudentNotesView.tsx';
 import { OfflineIndicator } from './components/OfflineIndicator.tsx';
 
-const WORKSPACE_STORAGE_KEY = 'one_student_workspace_v3';
-const CHECKIN_STORAGE_KEY = 'one_student_checkin_v3';
+const WORKSPACE_STORAGE_KEY = 'one_student_workspace_v4';
+const CHECKIN_STORAGE_KEY = 'one_student_checkin_v4';
 
 const MOBILE_TABS: { id: StudentTab; label: string }[] = [
   { id: 'planner', label: 'Overview' },
@@ -47,7 +47,14 @@ export default function App() {
       const saved = localStorage.getItem(WORKSPACE_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        return { ...INITIAL_STUDENT_WORKSPACE, ...parsed };
+        return {
+          ...INITIAL_STUDENT_WORKSPACE,
+          ...parsed,
+          scheduleBlocks:
+            Array.isArray(parsed.scheduleBlocks) && parsed.scheduleBlocks.length > 0
+              ? parsed.scheduleBlocks
+              : INITIAL_STUDENT_WORKSPACE.scheduleBlocks,
+        };
       }
       return INITIAL_STUDENT_WORKSPACE;
     } catch {
@@ -66,6 +73,8 @@ export default function App() {
       return DEFAULT_CHECKIN_RESPONSES;
     }
   });
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const getInitialNavigationFromHash = (): { tab: StudentTab; stepIndex: number } => {
     if (typeof window === 'undefined') return { tab: 'planner', stepIndex: 0 };
@@ -159,6 +168,19 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleStartTaskFocus = (courseCode: string, taskId?: string) => {
+    const safeCourse =
+      courseCode && courseCode !== 'BREAK' && courseCode !== 'GENERAL'
+        ? courseCode
+        : data.courses[0]?.code || 'CS-301';
+    setData((prev) => ({
+      ...prev,
+      activeFocusCourse: safeCourse,
+      activeFocusTaskId: taskId || null,
+    }));
+    handleSelectTab('focus');
+  };
+
   const handleCheckinContinue = () => {
     if (currentStepIndex < TOTAL_QUESTIONS - 1) {
       const nextIdx = currentStepIndex + 1;
@@ -193,6 +215,41 @@ export default function App() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  const handleExportJsonBackup = () => {
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `one-student-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportJsonBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result));
+        if (parsed && Array.isArray(parsed.tasks) && Array.isArray(parsed.courses)) {
+          setData((prev) => ({
+            ...INITIAL_STUDENT_WORKSPACE,
+            ...parsed,
+            theme: parsed.theme || prev.theme,
+          }));
+        }
+      } catch {
+        // Ignore invalid JSON file
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   const handleResetDemoData = () => {
@@ -266,10 +323,15 @@ export default function App() {
                 data={data}
                 onUpdateData={setData}
                 onNavigate={handleSelectTab}
+                onStartTaskFocus={handleStartTaskFocus}
               />
             )}
             {activeTab === 'tasks' && (
-              <StudentTasksView data={data} onUpdateData={setData} />
+              <StudentTasksView
+                data={data}
+                onUpdateData={setData}
+                onStartTaskFocus={handleStartTaskFocus}
+              />
             )}
             {activeTab === 'study' && (
               <StudentStudyView data={data} onUpdateData={setData} />
@@ -287,20 +349,46 @@ export default function App() {
         )}
       </main>
 
-      {/* Quiet Footer with Export & Reset */}
+      {/* Quiet Footer with Export, JSON Backup/Restore & Reset */}
       {activeTab !== 'checkin' && (
         <footer className="border-t border-zinc-200 dark:border-zinc-900 py-6 px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-500 dark:text-zinc-400">
-            <span>One · All-in-One Student Workspace · Offline-First PWA</span>
-            <div className="flex items-center gap-4">
+            <span>One · All-in-One Student Workspace · Gemini Schedule & Study Engine</span>
+            <div className="flex flex-wrap items-center justify-center gap-4">
               <button
                 type="button"
                 onClick={handleExportReport}
                 className="inline-flex items-center gap-1.5 hover:text-zinc-950 dark:hover:text-white transition"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>Export Study Report (.md)</span>
+                <span>Export Report (.md)</span>
               </button>
+              <span aria-hidden="true">·</span>
+              <button
+                type="button"
+                onClick={handleExportJsonBackup}
+                className="inline-flex items-center gap-1.5 hover:text-zinc-950 dark:hover:text-white transition"
+              >
+                <FileJson className="w-3.5 h-3.5" />
+                <span>Backup (.json)</span>
+              </button>
+              <span aria-hidden="true">·</span>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="inline-flex items-center gap-1.5 hover:text-zinc-950 dark:hover:text-white transition"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Restore (.json)</span>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/json"
+                onChange={handleImportJsonBackup}
+                className="hidden"
+                aria-label="Restore JSON workspace backup"
+              />
               <span aria-hidden="true">·</span>
               <button
                 type="button"

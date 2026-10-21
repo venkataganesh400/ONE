@@ -40,6 +40,13 @@ export interface StudentCheckinResponses {
   distractionRules: string[];
 }
 
+export interface TaskSubstep {
+  id: string;
+  title: string;
+  estimatedMinutes: number;
+  completed: boolean;
+}
+
 export interface TaskItem {
   id: string;
   title: string;
@@ -48,6 +55,13 @@ export interface TaskItem {
   priority: 'low' | 'medium' | 'high';
   completed: boolean;
   createdAt: string;
+  subtasks?: TaskSubstep[];
+}
+
+export interface SyllabusTopicItem {
+  id: string;
+  title: string;
+  completed: boolean;
 }
 
 export interface CourseItem {
@@ -60,6 +74,7 @@ export interface CourseItem {
   totalTopics: number;
   grade: string;
   credits: number;
+  syllabusTopics?: SyllabusTopicItem[];
 }
 
 export type ExpenseCategory =
@@ -78,6 +93,12 @@ export interface ExpenseItem {
   date: string;
 }
 
+export interface NoteFlashcard {
+  id: string;
+  question: string;
+  answer: string;
+}
+
 export interface StudyNote {
   id: string;
   title: string;
@@ -85,11 +106,15 @@ export interface StudyNote {
   content: string;
   isPinned: boolean;
   updatedAt: string;
+  summaryBullets?: string[];
+  flashcards?: NoteFlashcard[];
 }
 
 export interface StudySession {
   id: string;
   courseCode: string;
+  taskId?: string;
+  taskTitle?: string;
   durationMinutes: number;
   completedAt: string;
 }
@@ -100,6 +125,18 @@ export interface ExamDeadline {
   course: string;
   date: string;
   type: 'Exam' | 'Project' | 'Quiz';
+}
+
+export interface ScheduleBlock {
+  id: string;
+  startTime: string;
+  endTime: string;
+  title: string;
+  course: string;
+  type: 'focus' | 'exam_prep' | 'review' | 'break';
+  durationMinutes: number;
+  completed: boolean;
+  taskId?: string;
 }
 
 export interface StudentWorkspaceData {
@@ -116,4 +153,8 @@ export interface StudentWorkspaceData {
   notes: StudyNote[];
   sessions: StudySession[];
   exams: ExamDeadline[];
+  scheduleBlocks: ScheduleBlock[];
+  scheduleCoachNote?: string;
+  activeFocusTaskId?: string | null;
+  activeFocusCourse?: string;
 }

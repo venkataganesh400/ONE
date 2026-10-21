@@ -83,6 +83,37 @@ export default defineConfig(() => {
           enabled: false,
         },
       }),
+      {
+        name: 'disable-vite-client-ws',
+        transform(code, id) {
+          if (id.includes('vite/dist/client/client.mjs')) {
+            return code
+              .replace(
+                'else throw new SendBeforeConnectError("send was called before connect");',
+                'else return;'
+              )
+              .replace(
+                'else throw new SendBeforeConnectError("invoke was called before connect");',
+                'else return;'
+              )
+              .replace(
+                'async connect({ onMessage, onDisconnection }) {',
+                'async connect() { return; },\n\t\tasync _disabledConnect({ onMessage, onDisconnection }) {'
+              )
+              .replace(
+                'ws.send(JSON.stringify(data));',
+                'ws?.send?.(JSON.stringify(data));'
+              )
+              .replace(
+                'setupForwardConsoleHandler(transport, forwardConsole);',
+                '/* Console forwarding disabled */'
+              );
+          }
+          if (id.includes('pwa-entry-point-loaded')) {
+            return 'export default function registerDevSW() {}\n';
+          }
+        },
+      },
     ],
     resolve: {
       alias: {
@@ -92,9 +123,10 @@ export default defineConfig(() => {
     server: {
       port: 3000,
       host: '0.0.0.0',
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      hmr: process.env.DISABLE_HMR !== 'true',
-      watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      // HMR & WebSocket server are disabled in AI Studio to prevent WebSocket connection errors.
+      hmr: false,
+      ws: false,
+      watch: null,
     },
   };
 });

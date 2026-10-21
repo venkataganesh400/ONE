@@ -1,7 +1,20 @@
 import React, { useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
-import type { CourseItem, StudentWorkspaceData } from '../types/index.ts';
+import {
+  Plus,
+  Trash2,
+  Check,
+  Sparkles,
+  Loader2,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
+import type {
+  CourseItem,
+  StudentWorkspaceData,
+  SyllabusTopicItem,
+} from '../types/index.ts';
 import { calculateStudyMetrics } from '../utils/workspace.ts';
+import { requestCourseSyllabus } from '../utils/aiClient.ts';
 
 interface StudentStudyViewProps {
   data: StudentWorkspaceData;
@@ -18,12 +31,22 @@ export const StudentStudyView: React.FC<StudentStudyViewProps> = ({
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [targetHours, setTargetHours] = useState('10');
-  const [totalTopics, setTotalTopics] = useState('16');
+  const [totalTopics, setTotalTopics] = useState('6');
   const [credits, setCredits] = useState('4');
   const [grade, setGrade] = useState('A');
 
+  const [expandedCourseIds, setExpandedCourseIds] = useState<Record<string, boolean>>({
+    'c-1': true,
+  });
+  const [newTopicInputs, setNewTopicInputs] = useState<Record<string, string>>({});
+  const [generatingCourseId, setGeneratingCourseId] = useState<string | null>(null);
+
   const metrics = calculateStudyMetrics(data.courses);
   const totalCredits = data.courses.reduce((acc, c) => acc + c.credits, 0);
+
+  const toggleExpandCourse = (courseId: string) => {
+    setExpandedCourseIds((prev) => ({ ...prev, [courseId]: !prev[courseId] }));
+  };
 
   const handleLogHour = (courseId: string, delta: number) => {
     onUpdateData((prev) => ({
@@ -39,18 +62,88 @@ export const StudentStudyView: React.FC<StudentStudyViewProps> = ({
   const handleCompleteTopic = (courseId: string, delta: number) => {
     onUpdateData((prev) => ({
       ...prev,
-      courses: prev.courses.map((c) =>
-        c.id === courseId
-          ? {
-              ...c,
-              completedTopics: Math.min(
-                c.totalTopics,
-                Math.max(0, c.completedTopics + delta)
-              ),
-            }
-          : c
-      ),
+      courses: prev.courses.map((c) => {
+        if (c.id !== courseId) return c;
+        const nextCompleted = Math.min(
+          c.totalTopics,
+          Math.max(0, c.completedTopics + delta)
+        );
+        return {
+          ...c,
+          completedTopics: nextCompleted,
+        };
+      }),
     }));
+  };
+
+  const handleToggleSyllabusItem = (courseId: string, topicId: string) => {
+    onUpdateData((prev) => ({
+      ...prev,
+      courses: prev.courses.map((c) => {
+        if (c.id !== courseId || !c.syllabusTopics) return c;
+        const updatedList = c.syllabusTopics.map((item) =>
+          item.id === topicId ? { ...item, completed: !item.completed } : item
+        );
+        const completedCount = updatedList.filter((i) => i.completed).length;
+        return {
+          ...c,
+          syllabusTopics: updatedList,
+          completedTopics: completedCount,
+          totalTopics: Math.max(updatedList.length, c.totalTopics),
+        };
+      }),
+    }));
+  };
+
+  const handleAddSyllabusTopic = (courseId: string, e: React.FormEvent) => {
+    e.preventDefault();
+    const text = (newTopicInputs[courseId] || '').trim();
+    if (!text) return;
+
+    const newItem: SyllabusTopicItem = {
+      id: 'top-' + Date.now(),
+      title: text,
+      completed: false,
+    };
+
+    onUpdateData((prev) => ({
+      ...prev,
+      courses: prev.courses.map((c) => {
+        if (c.id !== courseId) return c;
+        const updatedList = [...(c.syllabusTopics || []), newItem];
+        return {
+          ...c,
+          syllabusTopics: updatedList,
+          totalTopics: updatedList.length,
+          completedTopics: updatedList.filter((i) => i.completed).length,
+        };
+      }),
+    }));
+
+    setNewTopicInputs((prev) => ({ ...prev, [courseId]: '' }));
+  };
+
+  const handleGenerateAISyllabus = async (course: CourseItem) => {
+    setGeneratingCourseId(course.id);
+    try {
+      const res = await requestCourseSyllabus(course.code, course.name);
+      onUpdateData((prev) => ({
+        ...prev,
+        courses: prev.courses.map((c) =>
+          c.id === course.id
+            ? {
+                ...c,
+                syllabusTopics: res.topics,
+                totalTopics: res.topics.length,
+                completedTopics: 0,
+              }
+            : c
+        ),
+      }));
+      setExpandedCourseIds((prev) => ({ ...prev, [course.id]: true }));
+    } finally {
+      setGeneratingCourseId(null);
+    }
   };
 
   const handleUpdateGrade = (courseId: string, newGrade: string) => {
@@ -71,9 +164,10 @@ export const StudentStudyView: React.FC<StudentStudyViewProps> = ({
       targetHoursPerWeek: Math.max(1, parseInt(targetHours, 10) || 10),
       loggedHours: 0,
       completedTopics: 0,
-      totalTopics: Math.max(1, parseInt(totalTopics, 10) || 15),
+      totalTopics: Math.max(1, parseInt(totalTopics, 10) || 6),
       grade,
       credits: Math.max(1, parseInt(credits, 10) || 3),
+      syllabusTopics: [],
     };
 
     onUpdateData((prev) => ({
@@ -101,7 +195,7 @@ export const StudentStudyView: React.FC<StudentStudyViewProps> = ({
             Studies & Course Tracker
           </h1>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Monitor syllabus completion, weekly study hours, and semester GPA across your courses.
+            Monitor named syllabus modules, weekly study hours, and semester GPA across your courses.
           </p>
         </div>
 
@@ -124,14 +218,14 @@ export const StudentStudyView: React.FC<StudentStudyViewProps> = ({
           <div className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
             Enroll New Course
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-6 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
             <input
               type="text"
               required
               value={code}
               onChange={(e) => setCode(e.target.value)}
               placeholder="Code (e.g. CS-402)"
-              className="px-3.5 py-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs font-mono text-zinc-950 dark:text-white"
+              className="sm:col-span-2 px-3.5 py-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs font-mono text-zinc-950 dark:text-white"
             />
             <input
               type="text"
@@ -139,7 +233,7 @@ export const StudentStudyView: React.FC<StudentStudyViewProps> = ({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Course Name (e.g. Machine Learning)"
-              className="sm:col-span-2 px-3.5 py-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs text-zinc-950 dark:text-white"
+              className="sm:col-span-4 px-3.5 py-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs text-zinc-950 dark:text-white"
             />
             <input
               type="number"
@@ -148,20 +242,21 @@ export const StudentStudyView: React.FC<StudentStudyViewProps> = ({
               onChange={(e) => setTargetHours(e.target.value)}
               placeholder="Target hrs/wk"
               title="Weekly Target Study Hours"
-              className="px-3 py-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs font-mono text-zinc-950 dark:text-white"
+              className="sm:col-span-2 px-3 py-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs font-mono text-zinc-950 dark:text-white"
             />
             <input
               type="number"
               min="1"
-              value={totalTopics}
-              onChange={(e) => setTotalTopics(e.target.value)}
-              placeholder="Total topics"
-              title="Total Syllabus Topics"
-              className="px-3 py-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs font-mono text-zinc-950 dark:text-white"
+              max="6"
+              value={credits}
+              onChange={(e) => setCredits(e.target.value)}
+              placeholder="Credits"
+              title="Course Credits"
+              className="sm:col-span-2 px-3 py-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs font-mono text-zinc-950 dark:text-white"
             />
             <button
               type="submit"
-              className="px-4 py-2.5 rounded-2xl bg-zinc-950 text-white dark:bg-white dark:text-black text-xs font-semibold hover:opacity-90 transition"
+              className="sm:col-span-2 px-4 py-2.5 rounded-2xl bg-zinc-950 text-white dark:bg-white dark:text-black text-xs font-semibold hover:opacity-90 transition"
             >
               Save Course
             </button>
@@ -210,7 +305,7 @@ export const StudentStudyView: React.FC<StudentStudyViewProps> = ({
       </div>
 
       {/* Course Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         {data.courses.map((course) => {
           const hourPct = Math.min(
             100,
@@ -220,6 +315,8 @@ export const StudentStudyView: React.FC<StudentStudyViewProps> = ({
             100,
             Math.round((course.completedTopics / Math.max(1, course.totalTopics)) * 100)
           );
+          const isExpanded = Boolean(expandedCourseIds[course.id]);
+          const isGenerating = generatingCourseId === course.id;
 
           return (
             <div
@@ -297,23 +394,139 @@ export const StudentStudyView: React.FC<StudentStudyViewProps> = ({
                 </div>
               </div>
 
-              {/* Quick Action Buttons */}
-              <div className="pt-2 border-t border-zinc-200 dark:border-zinc-900 flex flex-wrap items-center gap-2">
+              {/* Quick Action Buttons with Decrement & Increment Controls */}
+              <div className="pt-2 border-t border-zinc-200 dark:border-zinc-900 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleLogHour(course.id, -1)}
+                    aria-label={`Subtract 1 study hour from ${course.code}`}
+                    className="px-3 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-mono font-medium text-zinc-700 dark:text-zinc-300 hover:border-zinc-500 transition"
+                  >
+                    -1h
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleLogHour(course.id, 1)}
+                    className="px-3.5 py-1.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-black text-xs font-semibold hover:opacity-90 transition active:scale-95"
+                  >
+                    +1h Study
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleCompleteTopic(course.id, -1)}
+                    aria-label={`Subtract 1 completed topic from ${course.code}`}
+                    className="px-3 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-mono font-medium text-zinc-700 dark:text-zinc-300 hover:border-zinc-500 transition"
+                  >
+                    -1 Topic
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleCompleteTopic(course.id, 1)}
+                    className="px-3.5 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 hover:border-zinc-500 text-xs font-medium transition active:scale-95"
+                  >
+                    +1 Topic
+                  </button>
+                </div>
+
                 <button
                   type="button"
-                  onClick={() => handleLogHour(course.id, 1)}
-                  className="px-3.5 py-2 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-black text-xs font-semibold hover:opacity-90 transition active:scale-95"
+                  onClick={() => toggleExpandCourse(course.id)}
+                  className="inline-flex items-center gap-1 text-xs font-mono font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white"
                 >
-                  +1h Study
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleCompleteTopic(course.id, 1)}
-                  className="px-3.5 py-2 rounded-full border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 hover:border-zinc-500 text-xs font-medium transition active:scale-95"
-                >
-                  +1 Syllabus Topic
+                  <span>Syllabus ({course.syllabusTopics?.length || 0})</span>
+                  {isExpanded ? (
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  )}
                 </button>
               </div>
+
+              {/* Expandable Named Syllabus Topic Checklist */}
+              {isExpanded && (
+                <div className="p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
+                      Syllabus Modules Checklist
+                    </span>
+                    <button
+                      type="button"
+                      disabled={isGenerating}
+                      onClick={() => handleGenerateAISyllabus(course)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-zinc-300 dark:border-zinc-700 text-[11px] font-medium text-zinc-800 dark:text-zinc-200 hover:border-zinc-950 dark:hover:border-white transition"
+                    >
+                      {isGenerating ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-3 h-3" />
+                      )}
+                      <span>AI Populate Modules</span>
+                    </button>
+                  </div>
+
+                  {course.syllabusTopics && course.syllabusTopics.length > 0 ? (
+                    <div className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
+                      {course.syllabusTopics.map((topic) => (
+                        <div
+                          key={topic.id}
+                          onClick={() => handleToggleSyllabusItem(course.id, topic.id)}
+                          className="py-2 flex items-center gap-2.5 cursor-pointer group/topic"
+                        >
+                          <button
+                            type="button"
+                            aria-label={`Toggle syllabus topic ${topic.title}`}
+                            className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 border transition ${
+                              topic.completed
+                                ? 'bg-zinc-950 border-zinc-950 text-white dark:bg-white dark:border-white dark:text-black'
+                                : 'border-zinc-400 dark:border-zinc-700 text-transparent group-hover/topic:border-zinc-950 dark:group-hover/topic:border-white'
+                            }`}
+                          >
+                            <Check className="w-2.5 h-2.5 stroke-[3]" />
+                          </button>
+                          <span
+                            className={`text-xs sm:text-sm ${
+                              topic.completed
+                                ? 'line-through text-zinc-400 dark:text-zinc-600'
+                                : 'text-zinc-800 dark:text-zinc-200'
+                            }`}
+                          >
+                            {topic.title}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-zinc-500">
+                      No named syllabus topics yet. Add one below or generate with AI.
+                    </p>
+                  )}
+
+                  <form
+                    onSubmit={(e) => handleAddSyllabusTopic(course.id, e)}
+                    className="flex gap-2 pt-1"
+                  >
+                    <input
+                      type="text"
+                      value={newTopicInputs[course.id] || ''}
+                      onChange={(e) =>
+                        setNewTopicInputs((prev) => ({
+                          ...prev,
+                          [course.id]: e.target.value,
+                        }))
+                      }
+                      placeholder="Add syllabus topic or chapter..."
+                      className="flex-1 px-3 py-1.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 text-xs text-zinc-950 dark:text-white"
+                    />
+                    <button
+                      type="submit"
+                      className="px-3 py-1.5 rounded-xl bg-zinc-950 text-white dark:bg-white dark:text-black text-xs font-semibold"
+                    >
+                      Add
+                    </button>
+                  </form>
+                </div>
+              )}
             </div>
           );
         })}

@@ -22,11 +22,29 @@ export const StudentFocusView: React.FC<StudentFocusViewProps> = ({
   const [selectedMinutes, setSelectedMinutes] = useState(data.focusCadenceMinutes || 50);
   const [timeLeft, setTimeLeft] = useState((data.focusCadenceMinutes || 50) * 60);
   const [isRunning, setIsRunning] = useState(false);
+
   const [selectedCourse, setSelectedCourse] = useState(
-    data.courses[0]?.code || 'CS-301'
+    data.activeFocusCourse || data.courses[0]?.code || 'CS-301'
   );
+  const [selectedTaskId, setSelectedTaskId] = useState<string>(
+    data.activeFocusTaskId || ''
+  );
+  const [markTaskDoneOnFinish, setMarkTaskDoneOnFinish] = useState(false);
+
+  // Sync if user deep-linked from Overview or Tasks
+  useEffect(() => {
+    if (data.activeFocusCourse) {
+      setSelectedCourse(data.activeFocusCourse);
+    }
+    if (data.activeFocusTaskId !== undefined) {
+      setSelectedTaskId(data.activeFocusTaskId || '');
+    }
+  }, [data.activeFocusCourse, data.activeFocusTaskId]);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const pendingTasks = data.tasks.filter((t) => !t.completed);
+  const activeTask = data.tasks.find((t) => t.id === selectedTaskId);
 
   const playChime = () => {
     if (typeof window === 'undefined') return;
@@ -51,25 +69,39 @@ export const StudentFocusView: React.FC<StudentFocusViewProps> = ({
     }
   };
 
-  const creditSessionToCourse = (courseCode: string, minutes: number) => {
+  const creditSessionToCourse = (
+    courseCode: string,
+    minutes: number,
+    taskId?: string,
+    completeTask?: boolean
+  ) => {
     const addedHours = Number((minutes / 60).toFixed(1));
-    onUpdateData((prev) => ({
-      ...prev,
-      sessions: [
-        {
-          id: 'ss-' + Date.now(),
-          courseCode,
-          durationMinutes: minutes,
-          completedAt: new Date().toISOString(),
-        },
-        ...prev.sessions,
-      ],
-      courses: prev.courses.map((c) =>
-        c.code === courseCode
-          ? { ...c, loggedHours: Number((c.loggedHours + addedHours).toFixed(1)) }
-          : c
-      ),
-    }));
+    onUpdateData((prev) => {
+      const linkedTask = prev.tasks.find((t) => t.id === taskId);
+      return {
+        ...prev,
+        sessions: [
+          {
+            id: 'ss-' + Date.now(),
+            courseCode,
+            taskId: linkedTask?.id,
+            taskTitle: linkedTask?.title,
+            durationMinutes: minutes,
+            completedAt: new Date().toISOString(),
+          },
+          ...prev.sessions,
+        ],
+        courses: prev.courses.map((c) =>
+          c.code === courseCode
+            ? { ...c, loggedHours: Number((c.loggedHours + addedHours).toFixed(1)) }
+            : c
+        ),
+        tasks:
+          completeTask && taskId
+            ? prev.tasks.map((t) => (t.id === taskId ? { ...t, completed: true } : t))
+            : prev.tasks,
+      };
+    });
   };
 
   useEffect(() => {
@@ -80,7 +112,12 @@ export const StudentFocusView: React.FC<StudentFocusViewProps> = ({
             clearInterval(timerRef.current!);
             setIsRunning(false);
             playChime();
-            creditSessionToCourse(selectedCourse, selectedMinutes);
+            creditSessionToCourse(
+              selectedCourse,
+              selectedMinutes,
+              selectedTaskId || undefined,
+              markTaskDoneOnFinish
+            );
             return selectedMinutes * 60;
           }
           return prev - 1;
@@ -92,7 +129,7 @@ export const StudentFocusView: React.FC<StudentFocusViewProps> = ({
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isRunning, selectedCourse, selectedMinutes]);
+  }, [isRunning, selectedCourse, selectedMinutes, selectedTaskId, markTaskDoneOnFinish]);
 
   const handleSelectPreset = (minutes: number) => {
     setIsRunning(false);
@@ -100,10 +137,28 @@ export const StudentFocusView: React.FC<StudentFocusViewProps> = ({
     setTimeLeft(minutes * 60);
   };
 
+  const handleSelectTask = (taskId: string) => {
+    setSelectedTaskId(taskId);
+    const found = data.tasks.find((t) => t.id === taskId);
+    if (found && found.course !== 'GENERAL') {
+      setSelectedCourse(found.course);
+    }
+    onUpdateData((prev) => ({
+      ...prev,
+      activeFocusTaskId: taskId || null,
+      activeFocusCourse: found?.course || prev.activeFocusCourse,
+    }));
+  };
+
   const handleCompleteNow = () => {
     setIsRunning(false);
     playChime();
-    creditSessionToCourse(selectedCourse, selectedMinutes);
+    creditSessionToCourse(
+      selectedCourse,
+      selectedMinutes,
+      selectedTaskId || undefined,
+      markTaskDoneOnFinish
+    );
     setTimeLeft(selectedMinutes * 60);
   };
 
@@ -114,13 +169,13 @@ export const StudentFocusView: React.FC<StudentFocusViewProps> = ({
           Focus & Study Session Timer
         </h1>
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Select a subject, lock in your study cadence, and automatically log hours to your course progress.
+          Bind your session to a specific course and assignment, lock in your study cadence, and automatically log hours.
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left 7 Cols: Timer Card */}
-        <section className="lg:col-span-7 p-8 sm:p-10 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 flex flex-col items-center text-center space-y-8">
+        <section className="lg:col-span-7 p-8 sm:p-10 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 flex flex-col items-center text-center space-y-7">
           {/* Interval Selector Buttons */}
           <div className="flex flex-wrap items-center justify-center gap-1.5 p-1 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
             {PRESETS.map((preset) => (
@@ -139,32 +194,75 @@ export const StudentFocusView: React.FC<StudentFocusViewProps> = ({
             ))}
           </div>
 
-          {/* Course Attribution Selector */}
-          <div className="flex items-center gap-2 text-xs">
-            <label htmlFor="focus-course-select" className="text-zinc-500 dark:text-zinc-400 font-mono">
-              Studying for:
-            </label>
-            <select
-              id="focus-course-select"
-              value={selectedCourse}
-              onChange={(e) => setSelectedCourse(e.target.value)}
-              className="px-3.5 py-1.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 font-mono font-semibold text-zinc-950 dark:text-white"
-            >
-              {data.courses.map((c) => (
-                <option key={c.id} value={c.code}>
-                  {c.code} · {c.name}
-                </option>
-              ))}
-            </select>
+          {/* Course & Assignment Attribution Selectors */}
+          <div className="w-full max-w-lg grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+            <div className="space-y-1">
+              <label
+                htmlFor="focus-course-select"
+                className="block text-[11px] font-mono text-zinc-500 dark:text-zinc-400"
+              >
+                Course Attribution
+              </label>
+              <select
+                id="focus-course-select"
+                value={selectedCourse}
+                onChange={(e) => setSelectedCourse(e.target.value)}
+                className="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs font-mono font-semibold text-zinc-950 dark:text-white"
+              >
+                {data.courses.map((c) => (
+                  <option key={c.id} value={c.code}>
+                    {c.code} · {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label
+                htmlFor="focus-task-select"
+                className="block text-[11px] font-mono text-zinc-500 dark:text-zinc-400"
+              >
+                Linked Assignment / Task
+              </label>
+              <select
+                id="focus-task-select"
+                value={selectedTaskId}
+                onChange={(e) => handleSelectTask(e.target.value)}
+                className="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs text-zinc-950 dark:text-white"
+              >
+                <option value="">General Course Study (No specific task)</option>
+                {pendingTasks.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    [{t.course}] {t.title}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
+          {activeTask && !activeTask.completed && (
+            <label className="inline-flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={markTaskDoneOnFinish}
+                onChange={(e) => setMarkTaskDoneOnFinish(e.target.checked)}
+                className="rounded border-zinc-300 dark:border-zinc-700"
+              />
+              <span>
+                Mark &ldquo;{activeTask.title}&rdquo; complete when session finishes
+              </span>
+            </label>
+          )}
+
           {/* Big Tabular Countdown */}
-          <div className="py-4">
+          <div className="py-2">
             <div className="text-6xl sm:text-8xl font-extrabold font-mono text-zinc-950 dark:text-white tracking-tight tabular-nums">
               {formatTimeLeft(timeLeft)}
             </div>
             <p className="mt-2 text-xs font-mono uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
-              {isRunning ? `Focusing on ${selectedCourse}` : 'Ready to Begin'}
+              {isRunning
+                ? `Focusing on ${selectedCourse}${activeTask ? ` · ${activeTask.title}` : ''}`
+                : 'Ready to Begin'}
             </p>
           </div>
 
@@ -241,18 +339,25 @@ export const StudentFocusView: React.FC<StudentFocusViewProps> = ({
               {data.sessions.slice(0, 6).map((session) => (
                 <div
                   key={session.id}
-                  className="py-3 flex items-center justify-between text-xs font-mono"
+                  className="py-3 flex items-center justify-between gap-3 text-xs font-mono"
                 >
-                  <div className="space-x-2">
-                    <strong className="text-zinc-950 dark:text-white font-semibold">
-                      {session.courseCode}
-                    </strong>
-                    <span className="text-zinc-400">·</span>
-                    <span className="text-zinc-500 dark:text-zinc-400">
-                      {session.completedAt.split('T')[0]}
-                    </span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <strong className="text-zinc-950 dark:text-white font-semibold">
+                        {session.courseCode}
+                      </strong>
+                      <span className="text-zinc-400">·</span>
+                      <span className="text-zinc-500 dark:text-zinc-400">
+                        {session.completedAt.split('T')[0]}
+                      </span>
+                    </div>
+                    {session.taskTitle && (
+                      <p className="mt-0.5 text-[11px] font-sans text-zinc-500 dark:text-zinc-400 truncate">
+                        {session.taskTitle}
+                      </p>
+                    )}
                   </div>
-                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100 shrink-0">
                     +{session.durationMinutes} min
                   </span>
                 </div>
