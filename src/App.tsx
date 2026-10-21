@@ -68,6 +68,14 @@ export default function App() {
   });
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToTop = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const getInitialNavigationFromHash = (): { tab: StudentTab; stepIndex: number } => {
     if (typeof window === 'undefined') return { tab: 'planner', stepIndex: 0 };
@@ -158,7 +166,7 @@ export default function App() {
     } else {
       window.location.hash = tab;
     }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollToTop();
   };
 
   const handleStartTaskFocus = (courseCode: string, taskId?: string) => {
@@ -179,12 +187,12 @@ export default function App() {
       const nextIdx = currentStepIndex + 1;
       setCurrentStepIndex(nextIdx);
       window.location.hash = `step-${nextIdx + 1}`;
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      scrollToTop();
     } else {
       setData((prev) => applyCheckinToWorkspace(prev, checkinResponses));
       setActiveTab('planner');
       window.location.hash = 'planner';
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      scrollToTop();
     }
   };
 
@@ -193,7 +201,7 @@ export default function App() {
       const prevIdx = currentStepIndex - 1;
       setCurrentStepIndex(prevIdx);
       window.location.hash = `step-${prevIdx + 1}`;
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      scrollToTop();
     }
   };
 
@@ -256,7 +264,7 @@ export default function App() {
   const pendingTaskCount = data.tasks.filter((t) => !t.completed).length;
 
   return (
-    <div className="min-h-screen bg-white text-zinc-950 dark:bg-black dark:text-white flex flex-col font-sans selection:bg-zinc-950 selection:text-white dark:selection:bg-white dark:selection:text-black transition-colors duration-200">
+    <div className="h-[100dvh] w-full overflow-hidden bg-white text-zinc-950 dark:bg-black dark:text-white flex flex-col font-sans selection:bg-zinc-950 selection:text-white dark:selection:bg-white dark:selection:text-black transition-colors duration-200 relative">
       {/* Thin Top Progress Bar when in Check-in flow */}
       {activeTab === 'checkin' && (
         <ProgressBar currentStep={currentStepIndex + 1} totalSteps={TOTAL_QUESTIONS} />
@@ -272,111 +280,122 @@ export default function App() {
         totalSteps={TOTAL_QUESTIONS}
       />
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col">
-        {activeTab === 'checkin' && activeQuestion ? (
-          <div key={`checkin-${activeQuestion.id}`} className="flex-1 flex flex-col view-transition-enter">
-            <QuestionScreen
-              question={activeQuestion}
-              responses={checkinResponses}
-              onUpdateResponses={setCheckinResponses}
-              onContinue={handleCheckinContinue}
-              onBack={handleCheckinBack}
-              canBack={currentStepIndex > 0}
-              isLastStep={currentStepIndex === TOTAL_QUESTIONS - 1}
-            />
-          </div>
-        ) : (
-          <div
-            key={activeTab}
-            className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-7 sm:py-9 flex-1 view-transition-enter"
-          >
-            {activeTab === 'planner' && (
-              <StudentOverview
-                data={data}
-                onUpdateData={setData}
-                onNavigate={handleSelectTab}
-                onStartTaskFocus={handleStartTaskFocus}
+      {/* Dedicated Scrollable Viewport Container (Prevents mobile browser URL bar from hiding bottom nav on scroll) */}
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain flex flex-col"
+      >
+        {/* Main Content Area */}
+        <main className="flex-1 flex flex-col">
+          {activeTab === 'checkin' && activeQuestion ? (
+            <div
+              key={`checkin-${activeQuestion.id}`}
+              className="flex-1 flex flex-col view-transition-enter"
+            >
+              <QuestionScreen
+                question={activeQuestion}
+                responses={checkinResponses}
+                onUpdateResponses={setCheckinResponses}
+                onContinue={handleCheckinContinue}
+                onBack={handleCheckinBack}
+                canBack={currentStepIndex > 0}
+                isLastStep={currentStepIndex === TOTAL_QUESTIONS - 1}
               />
-            )}
-            {activeTab === 'tasks' && (
-              <StudentTasksView
-                data={data}
-                onUpdateData={setData}
-                onStartTaskFocus={handleStartTaskFocus}
-              />
-            )}
-            {activeTab === 'study' && (
-              <StudentStudyView data={data} onUpdateData={setData} />
-            )}
-            {activeTab === 'focus' && (
-              <StudentFocusView data={data} onUpdateData={setData} />
-            )}
-            {activeTab === 'expenses' && (
-              <StudentExpensesView data={data} onUpdateData={setData} />
-            )}
-            {activeTab === 'notes' && (
-              <StudentNotesView data={data} onUpdateData={setData} />
-            )}
-          </div>
-        )}
-      </main>
-
-      {/* Quiet Footer with Export, JSON Backup/Restore & Reset (padded for bottom glossy nav dock) */}
-      {activeTab !== 'checkin' && (
-        <footer className="border-t border-zinc-200/80 dark:border-zinc-900 pt-6 pb-28 sm:pb-32 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-500 dark:text-zinc-400">
-            <span>One · All-in-One Student Workspace · Gemini Schedule &amp; Study Engine</span>
-            <div className="flex flex-wrap items-center justify-center gap-4">
-              <button
-                type="button"
-                onClick={handleExportReport}
-                className="inline-flex items-center gap-1.5 hover:text-zinc-950 dark:hover:text-white transition whitespace-nowrap shrink-0"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export Report (.md)</span>
-              </button>
-              <span aria-hidden="true">·</span>
-              <button
-                type="button"
-                onClick={handleExportJsonBackup}
-                className="inline-flex items-center gap-1.5 hover:text-zinc-950 dark:hover:text-white transition whitespace-nowrap shrink-0"
-              >
-                <FileJson className="w-3.5 h-3.5" />
-                <span>Backup (.json)</span>
-              </button>
-              <span aria-hidden="true">·</span>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 hover:text-zinc-950 dark:hover:text-white transition whitespace-nowrap shrink-0"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                <span>Restore (.json)</span>
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="application/json"
-                onChange={handleImportJsonBackup}
-                className="hidden"
-                aria-label="Restore JSON workspace backup"
-              />
-              <span aria-hidden="true">·</span>
-              <button
-                type="button"
-                onClick={handleResetDemoData}
-                className="inline-flex items-center gap-1.5 hover:text-zinc-950 dark:hover:text-white transition whitespace-nowrap shrink-0"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset Sample Data</span>
-              </button>
             </div>
-          </div>
-        </footer>
-      )}
+          ) : (
+            <div
+              key={activeTab}
+              className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-6 sm:py-9 flex-1 view-transition-enter"
+            >
+              {activeTab === 'planner' && (
+                <StudentOverview
+                  data={data}
+                  onUpdateData={setData}
+                  onNavigate={handleSelectTab}
+                  onStartTaskFocus={handleStartTaskFocus}
+                />
+              )}
+              {activeTab === 'tasks' && (
+                <StudentTasksView
+                  data={data}
+                  onUpdateData={setData}
+                  onStartTaskFocus={handleStartTaskFocus}
+                />
+              )}
+              {activeTab === 'study' && (
+                <StudentStudyView data={data} onUpdateData={setData} />
+              )}
+              {activeTab === 'focus' && (
+                <StudentFocusView data={data} onUpdateData={setData} />
+              )}
+              {activeTab === 'expenses' && (
+                <StudentExpensesView data={data} onUpdateData={setData} />
+              )}
+              {activeTab === 'notes' && (
+                <StudentNotesView data={data} onUpdateData={setData} />
+              )}
+            </div>
+          )}
+        </main>
 
-      {/* Glossy Bottom Navigation Bar */}
+        {/* Quiet Footer with Export, JSON Backup/Restore & Reset (padded for bottom glossy nav dock) */}
+        {activeTab !== 'checkin' && (
+          <footer className="border-t border-zinc-200/80 dark:border-zinc-900 pt-6 pb-28 sm:pb-32 px-4 sm:px-6 lg:px-8 shrink-0">
+            <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-500 dark:text-zinc-400">
+              <span className="text-center sm:text-left">
+                One · All-in-One Student Workspace · Gemini Schedule &amp; Study Engine
+              </span>
+              <div className="flex flex-wrap items-center justify-center gap-4">
+                <button
+                  type="button"
+                  onClick={handleExportReport}
+                  className="inline-flex items-center gap-1.5 hover:text-zinc-950 dark:hover:text-white transition whitespace-nowrap shrink-0"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Export Report (.md)</span>
+                </button>
+                <span aria-hidden="true">·</span>
+                <button
+                  type="button"
+                  onClick={handleExportJsonBackup}
+                  className="inline-flex items-center gap-1.5 hover:text-zinc-950 dark:hover:text-white transition whitespace-nowrap shrink-0"
+                >
+                  <FileJson className="w-3.5 h-3.5" />
+                  <span>Backup (.json)</span>
+                </button>
+                <span aria-hidden="true">·</span>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-1.5 hover:text-zinc-950 dark:hover:text-white transition whitespace-nowrap shrink-0"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Restore (.json)</span>
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/json"
+                  onChange={handleImportJsonBackup}
+                  className="hidden"
+                  aria-label="Restore JSON workspace backup"
+                />
+                <span aria-hidden="true">·</span>
+                <button
+                  type="button"
+                  onClick={handleResetDemoData}
+                  className="inline-flex items-center gap-1.5 hover:text-zinc-950 dark:hover:text-white transition whitespace-nowrap shrink-0"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset Sample Data</span>
+                </button>
+              </div>
+            </div>
+          </footer>
+        )}
+      </div>
+
+      {/* Glossy Bottom Navigation Bar (Pinned inside 100dvh shell so it never hides on scroll) */}
       <BottomNav
         activeTab={activeTab}
         onSelectTab={handleSelectTab}

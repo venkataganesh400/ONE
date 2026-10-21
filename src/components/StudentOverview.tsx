@@ -414,7 +414,7 @@ export const StudentOverview: React.FC<StudentOverviewProps> = ({
               key={block.id}
               className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
             >
-              <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+              <div className="flex items-start sm:items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1 overflow-hidden">
                 <button
                   type="button"
                   onClick={() => handleToggleScheduleBlock(block.id)}
@@ -430,27 +430,31 @@ export const StudentOverview: React.FC<StudentOverviewProps> = ({
                   <Check className="w-3 h-3 stroke-[3]" />
                 </button>
 
-                <span className="text-xs font-mono font-semibold text-zinc-500 dark:text-zinc-400 tabular-nums shrink-0 w-24">
-                  {block.startTime}–{block.endTime}
-                </span>
+                <div className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-3">
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs font-mono font-semibold text-zinc-500 dark:text-zinc-400 tabular-nums shrink-0">
+                      {block.startTime}–{block.endTime}
+                    </span>
 
-                <span className="text-xs font-mono font-bold text-zinc-800 dark:text-zinc-200 shrink-0">
-                  {block.course}
-                </span>
+                    <span className="text-xs font-mono font-bold text-zinc-800 dark:text-zinc-200 shrink-0">
+                      {block.course}
+                    </span>
 
-                <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
-                  ·
-                </span>
+                    <span aria-hidden="true" className="hidden sm:inline text-zinc-300 dark:text-zinc-700">
+                      ·
+                    </span>
+                  </div>
 
-                <p
-                  className={`text-sm font-medium truncate ${
-                    block.completed
-                      ? 'line-through text-zinc-400 dark:text-zinc-600'
-                      : 'text-zinc-950 dark:text-white'
-                  }`}
-                >
-                  {block.title}
-                </p>
+                  <p
+                    className={`mt-0.5 sm:mt-0 text-sm font-medium sm:truncate ${
+                      block.completed
+                        ? 'line-through text-zinc-400 dark:text-zinc-600'
+                        : 'text-zinc-950 dark:text-white'
+                    }`}
+                  >
+                    {block.title}
+                  </p>
+                </div>
               </div>
 
               <div className="flex items-center gap-2 self-end sm:self-center shrink-0">

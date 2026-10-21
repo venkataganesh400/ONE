@@ -33,13 +33,13 @@ export const Header: React.FC<HeaderProps> = ({
   const isCheckin = activeTab === 'checkin';
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-zinc-200/80 dark:border-zinc-800/80 glossy-header transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-12 sm:h-14 flex items-center justify-between gap-6">
+    <header className="shrink-0 z-40 w-full border-b border-zinc-200/80 dark:border-zinc-800/80 glossy-header transition-colors">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-12 sm:h-14 flex items-center justify-between gap-2 sm:gap-6">
         {/* Zone 1: Brand mark + single text element wordmark */}
         <button
           type="button"
           onClick={() => onSelectTab('planner')}
-          className="inline-flex items-center gap-2.5 text-base sm:text-lg font-extrabold tracking-tight text-zinc-950 dark:text-white whitespace-nowrap shrink-0 focus:outline-none group"
+          className="inline-flex items-center gap-2 text-base sm:text-lg font-extrabold tracking-tight text-zinc-950 dark:text-white whitespace-nowrap shrink-0 focus:outline-none group"
           aria-label="One Student Workspace Home"
         >
           <svg
@@ -81,7 +81,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Zone 2: Contextual Section Title or Check-in Step Counter */}
         {isCheckin ? (
-          <div className="flex items-center gap-4 text-xs font-mono text-zinc-500 dark:text-zinc-400">
+          <div className="flex items-center gap-2 sm:gap-4 text-xs font-mono text-zinc-500 dark:text-zinc-400">
             <span>
               <strong className="text-zinc-950 dark:text-white font-semibold">
                 {String(currentStep).padStart(2, '0')}
@@ -94,7 +94,7 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={() => onSelectTab('planner')}
               className="inline-flex items-center gap-1 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
             >
-              <span>Skip to Student Hub</span>
+              <span>Skip</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -109,11 +109,11 @@ export const Header: React.FC<HeaderProps> = ({
         )}
 
         {/* Zone 3: Theme Toggle & Check-in / Install Action */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <button
             type="button"
             onClick={onToggleTheme}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-zinc-300/90 dark:border-zinc-800 bg-zinc-100/90 dark:bg-zinc-900/90 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition text-xs font-medium whitespace-nowrap shrink-0"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full border border-zinc-300/90 dark:border-zinc-800 bg-zinc-100/90 dark:bg-zinc-900/90 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition text-xs font-medium whitespace-nowrap shrink-0"
             aria-label={theme === 'dark' ? 'Switch to Bright Mode' : 'Switch to Dark Mode'}
           >
             {theme === 'dark' ? (
@@ -133,10 +133,11 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={() => onSelectTab('checkin')}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full glossy-active-tab hover:opacity-95 transition text-xs font-semibold whitespace-nowrap shrink-0"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full glossy-active-tab hover:opacity-95 transition text-xs font-semibold whitespace-nowrap shrink-0"
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
-              <span>Daily Check-in</span>
+              <span className="sm:hidden">Check-in</span>
+              <span className="hidden sm:inline">Daily Check-in</span>
             </button>
           )}
 
