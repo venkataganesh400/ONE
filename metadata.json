@@ -1,0 +1,6 @@
+{
+  "name": "One - Offline Productivity Workspace",
+  "description": "An installable, offline-first personal workspace for tasks, quick notes, focus timer, and daily habit tracking. Built as a high-performance PWA for static GitHub Pages deployment.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
