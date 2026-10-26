@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import {
   onAuthStateChanged,
   signInWithPopup,
-  signInAnonymously,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   updateProfile,
@@ -36,28 +35,57 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      // Handle edge cases where anonymous or un-provisioned sessions reside in browser IndexedDB
+      if (currentUser) {
+        if (currentUser.isAnonymous) {
+          console.warn('[Auth] Anonymous session detected. Clearing unsupported session.');
+          await signOut(auth).catch(() => {});
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+
+        try {
+          // Verify that this token can be safely obtained from token service without throwing
+          await currentUser.getIdToken(false);
+        } catch (tokenErr: unknown) {
+          const msg = tokenErr instanceof Error ? tokenErr.message : String(tokenErr);
+          if (msg.includes('token-service-api') || msg.includes('disabled')) {
+            console.warn('[Auth] Token Service API pending propagation or disabled. Resetting session to offline.');
+            await signOut(auth).catch(() => {});
+            setUser(null);
+            setLoading(false);
+            return;
+          }
+        }
+      }
+
       setUser(currentUser);
       setLoading(false);
 
-      if (currentUser) {
+      if (currentUser && !currentUser.isAnonymous) {
         try {
           const userDocRef = doc(db, 'users', currentUser.uid);
           await setDoc(
             userDocRef,
             {
               id: currentUser.uid,
-              email: currentUser.email || `guest_${currentUser.uid.slice(0, 6)}@workspace.local`,
-              displayName: currentUser.displayName || (currentUser.isAnonymous ? 'Guest Student' : 'Student'),
+              email: currentUser.email || `student_${currentUser.uid.slice(0, 6)}@workspace.local`,
+              displayName: currentUser.displayName || 'Student',
               photoURL: currentUser.photoURL || '',
-              isAnonymous: currentUser.isAnonymous,
+              isAnonymous: false,
               lastLoginAt: new Date().toISOString(),
             },
             { merge: true }
           );
-        } catch (err) {
-          // If Firestore write fails, do not throw or kick the user out of Auth!
-          console.warn('Initial profile sync warning:', err);
-          handleFirestoreError(err, OperationType.WRITE, `users/${currentUser.uid}`);
+        } catch (err: unknown) {
+          // Gracefully handle if initial profile sync is delayed or offline
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.includes('token-service-api') || msg.includes('offline') || msg.includes('Could not reach')) {
+            console.warn('[Auth Profile Sync] Cloud sync will resume once connected:', msg);
+          } else {
+            handleFirestoreError(err, OperationType.WRITE, `users/${currentUser.uid}`);
+          }
         }
       }
     });
@@ -86,12 +114,12 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
       }
 
       if (errorCode === 'auth/popup-blocked') {
-        setError('Google sign-in popup was blocked. You can sign up with email/password directly below.');
+        setError('Google sign-in popup was blocked. Please enable popups or continue in Guest Mode.');
         return;
       }
 
       if (errorCode === 'auth/unauthorized-domain') {
-        setError('This preview domain is awaiting OAuth authorization. Please sign up with Email & Password or use Guest Mode.');
+        setError('This preview domain is awaiting OAuth authorization. Please continue in Local Guest Mode.');
         return;
       }
 
@@ -124,14 +152,21 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
       const isFirebaseError = typeof err === 'object' && err !== null && 'code' in err;
       const errorCode = isFirebaseError ? String((err as { code: string }).code) : '';
 
-      if (errorCode === 'auth/email-already-in-use') {
+      if (errorCode === 'auth/operation-not-allowed') {
+        setError('Email sign-in is not enabled on this project. Please continue with Google Sign-In or use Guest Mode.');
+      } else if (errorCode === 'auth/email-already-in-use') {
         setError('This email is already registered. Please sign in instead.');
       } else if (errorCode === 'auth/weak-password') {
         setError('Password should be at least 6 characters.');
       } else if (errorCode === 'auth/invalid-email') {
         setError('Please enter a valid email address.');
       } else {
-        setError(err instanceof Error ? err.message : 'Sign up failed');
+        const msg = err instanceof Error ? err.message : 'Sign up failed';
+        if (msg.includes('token-service-api')) {
+          setError('Google Cloud Token Service is activating. Please use Google Sign-In or Guest Mode.');
+        } else {
+          setError(msg);
+        }
       }
       return false;
     } finally {
@@ -153,12 +188,19 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
       const isFirebaseError = typeof err === 'object' && err !== null && 'code' in err;
       const errorCode = isFirebaseError ? String((err as { code: string }).code) : '';
 
-      if (errorCode === 'auth/invalid-credential' || errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password') {
+      if (errorCode === 'auth/operation-not-allowed') {
+        setError('Email sign-in is not enabled on this project. Please continue with Google Sign-In or use Guest Mode.');
+      } else if (errorCode === 'auth/invalid-credential' || errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password') {
         setError('Invalid email or password. Please verify and try again.');
       } else if (errorCode === 'auth/too-many-requests') {
         setError('Too many failed attempts. Please wait a moment or reset your password.');
       } else {
-        setError(err instanceof Error ? err.message : 'Sign in failed');
+        const msg = err instanceof Error ? err.message : 'Sign in failed';
+        if (msg.includes('token-service-api')) {
+          setError('Google Cloud Token Service is activating. Please use Google Sign-In or Guest Mode.');
+        } else {
+          setError(msg);
+        }
       }
       return false;
     } finally {
@@ -168,27 +210,17 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
   };
 
   const signInAsGuestStudent = async () => {
-    if (isSigningInRef.current) return;
-    isSigningInRef.current = true;
-    setIsSigningIn(true);
+    // Guest mode provides full offline-first functionality without creating an un-provisioned backend session
+    await signOut(auth).catch(() => {});
+    setUser(null);
     setError(null);
-
-    try {
-      await signInAnonymously(auth);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Guest login failed';
-      console.warn('Guest login notice:', msg);
-      setError(msg);
-    } finally {
-      isSigningInRef.current = false;
-      setIsSigningIn(false);
-    }
   };
 
   const signOutUser = async () => {
     setError(null);
     try {
       await signOut(auth);
+      setUser(null);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Sign out failed';
       setError(msg);

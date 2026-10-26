@@ -40,7 +40,7 @@ export function useCloudSync(
 
   // Subscribe to real-time Firestore updates when logged in
   useEffect(() => {
-    if (!user) {
+    if (!user || user.isAnonymous) {
       setSyncStatus('idle');
       return;
     }
@@ -97,8 +97,8 @@ export function useCloudSync(
   // Push local updates with compression to Firestore (debounced)
   const saveToCloud = useCallback(
     async (data: StudentWorkspaceData) => {
-      if (!user) {
-        // If not logged in, just compute local compression metrics
+      if (!user || user.isAnonymous) {
+        // If not logged in or in guest mode, compute local compression metrics
         try {
           const { metrics: localMetrics } = compressData(data);
           setMetrics(localMetrics);
@@ -133,13 +133,19 @@ export function useCloudSync(
         setLastSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Cloud sync failed';
-        handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}/workspaces/main_workspace`);
         const isOffline =
           msg.includes('offline') ||
           msg.includes('Could not reach') ||
           msg.includes('token-service-api');
-        setSyncStatus(isOffline ? 'offline' : 'error');
-        setSyncError(isOffline ? 'Operating offline: workspace preserved locally with compression' : msg);
+
+        if (isOffline) {
+          setSyncStatus('offline');
+          setSyncError('Operating offline: workspace preserved locally with compression');
+        } else {
+          handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}/workspaces/main_workspace`);
+          setSyncStatus('error');
+          setSyncError(msg);
+        }
       }
     },
     [user]
@@ -147,7 +153,7 @@ export function useCloudSync(
 
   // Auto-sync debounce effect when workspace data changes and user is signed in
   useEffect(() => {
-    if (!user) {
+    if (!user || user.isAnonymous) {
       // Keep local compression metrics fresh even in guest mode
       try {
         const { metrics: m } = compressData(currentData);
