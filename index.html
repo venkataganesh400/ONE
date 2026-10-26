@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+    <title>One — Student All-in-One Workspace</title>
+    <meta name="description" content="Minimal, offline-first student workspace for academic planning, focus timer, course tracking, daily tasks, lecture notes, and student expense budgeting." />
+    
+    <!-- OpenGraph & Social Cards -->
+    <meta property="og:title" content="One — Student All-in-One Workspace" />
+    <meta property="og:description" content="Minimal, offline-first student workspace for academic planning, focus timer, course tracking, daily tasks, lecture notes, and student expense budgeting." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <!-- PWA & Mobile Web App Meta -->
+    <meta name="theme-color" content="#1C1917" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="One" />
+    <meta name="apple-touch-fullscreen" content="yes" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+    <link rel="alternate icon" href="./favicon.ico" />
+  </head>
+  <body class="bg-white text-zinc-950 dark:bg-black dark:text-white min-h-screen antialiased selection:bg-zinc-900 selection:text-white dark:selection:bg-white dark:selection:text-black transition-colors duration-200">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

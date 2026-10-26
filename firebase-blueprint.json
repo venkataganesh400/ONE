@@ -1,0 +1,84 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with display information and timestamps",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 256 },
+        "displayName": { "type": "string", "maxLength": 128 },
+        "photoURL": { "type": "string", "maxLength": 1024 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "email"]
+    },
+    "UserWorkspace": {
+      "title": "UserWorkspace",
+      "description": "User synchronized workspace state with compression metrics",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "currency": { "type": "string", "maxLength": 10 },
+        "monthlyBudget": { "type": "number" },
+        "compressedData": { "type": "string", "maxLength": 1048576 },
+        "uncompressedBytes": { "type": "number" },
+        "compressedBytes": { "type": "number" },
+        "compressionRatio": { "type": "number" },
+        "version": { "type": "number" },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["userId", "currency", "monthlyBudget", "compressedData", "updatedAt"]
+    },
+    "ExpenseRecord": {
+      "title": "ExpenseRecord",
+      "description": "Individual student expense item with category and amount",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 256 },
+        "amount": { "type": "number" },
+        "category": { "type": "string", "maxLength": 64 },
+        "date": { "type": "string", "maxLength": 32 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "userId", "title", "amount", "category", "date"]
+    },
+    "TaskRecord": {
+      "title": "TaskRecord",
+      "description": "Individual task item with deadline and priority",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 256 },
+        "course": { "type": "string", "maxLength": 64 },
+        "dueDate": { "type": "string", "maxLength": 32 },
+        "priority": { "type": "string", "maxLength": 32 },
+        "completed": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "userId", "title", "course", "dueDate", "priority", "completed"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile document storing basic account identity"
+    },
+    "/users/{userId}/workspaces/{workspaceId}": {
+      "schema": "UserWorkspace",
+      "description": "User synchronized workspace state with compressed payload"
+    },
+    "/users/{userId}/expenses/{expenseId}": {
+      "schema": "ExpenseRecord",
+      "description": "User individual expense transaction records"
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": "TaskRecord",
+      "description": "User to-do task records"
+    }
+  }
+}

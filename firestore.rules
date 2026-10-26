@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net: Default Deny All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Connection test probe
+    match /test/connection {
+      allow read: if true;
+    }
+
+    // User Profile Document and personal workspace storage
+    match /users/{userId} {
+      allow get, list, create, update, delete: if isOwner(userId);
+
+      // User Workspaces with compressed data payload
+      match /workspaces/{workspaceId} {
+        allow get, list, create, update, delete: if isOwner(userId);
+      }
+
+      // User Granular Expenses
+      match /expenses/{expenseId} {
+        allow get, list, create, update, delete: if isOwner(userId);
+      }
+
+      // User Granular Tasks
+      match /tasks/{taskId} {
+        allow get, list, create, update, delete: if isOwner(userId);
+      }
+
+      // Safety match for all nested subcollections under the user
+      match /{allChildren=**} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+  }
+}
