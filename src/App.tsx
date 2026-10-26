@@ -34,6 +34,7 @@ import { WorkspaceSettingsModal } from './components/WorkspaceSettingsModal.tsx'
 import { useFirebaseAuth } from './hooks/useFirebaseAuth.ts';
 import { useCloudSync } from './hooks/useCloudSync.ts';
 import { useTaskNotifications } from './hooks/useTaskNotifications.ts';
+import { testConnection } from './utils/firebase.ts';
 
 const WORKSPACE_STORAGE_KEY = 'one_student_workspace_v8_clean';
 const CHECKIN_STORAGE_KEY = 'one_student_checkin_v8';
@@ -165,6 +166,11 @@ export default function App() {
       root.classList.remove('dark');
     }
   }, [data.theme]);
+
+  // Initial Firestore connectivity test
+  useEffect(() => {
+    testConnection().catch(() => {});
+  }, []);
 
   // Persist workspace data locally
   useEffect(() => {

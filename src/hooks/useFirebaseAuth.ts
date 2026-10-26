@@ -10,7 +10,7 @@ import {
   User,
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
-import { auth, googleProvider, db, handleFirestoreError } from '../utils/firebase.ts';
+import { auth, googleProvider, db, handleFirestoreError, OperationType } from '../utils/firebase.ts';
 
 export interface UseFirebaseAuthReturn {
   user: User | null;
@@ -57,7 +57,7 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
         } catch (err) {
           // If Firestore write fails, do not throw or kick the user out of Auth!
           console.warn('Initial profile sync warning:', err);
-          handleFirestoreError(err, 'update', `users/${currentUser.uid}`);
+          handleFirestoreError(err, OperationType.WRITE, `users/${currentUser.uid}`);
         }
       }
     });

@@ -14,6 +14,11 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // Connection test probe
+    match /test/connection {
+      allow read: if true;
+    }
+
     // User Profile Document and personal workspace storage
     match /users/{userId} {
       allow get, list, create, update, delete: if isOwner(userId);

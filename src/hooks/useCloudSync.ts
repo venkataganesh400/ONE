@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { User } from 'firebase/auth';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
-import { db, handleFirestoreError } from '../utils/firebase.ts';
+import { db, handleFirestoreError, OperationType } from '../utils/firebase.ts';
 import { compressData, decompressData, CompressionMetrics } from '../utils/compression.ts';
 import type { StudentWorkspaceData } from '../types/index.ts';
 
@@ -78,9 +78,14 @@ export function useCloudSync(
         }
       },
       (error) => {
-        handleFirestoreError(error, 'read', `users/${user.uid}/workspaces/main_workspace`);
-        setSyncStatus('error');
-        setSyncError(error.message);
+        handleFirestoreError(error, OperationType.GET, `users/${user.uid}/workspaces/main_workspace`);
+        const msg = error.message || '';
+        const isOffline =
+          msg.includes('offline') ||
+          msg.includes('Could not reach') ||
+          msg.includes('token-service-api');
+        setSyncStatus(isOffline ? 'offline' : 'error');
+        setSyncError(isOffline ? 'Operating offline: workspace preserved locally with compression' : error.message);
       }
     );
 
@@ -128,9 +133,13 @@ export function useCloudSync(
         setLastSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Cloud sync failed';
-        handleFirestoreError(err, 'update', `users/${user.uid}/workspaces/main_workspace`);
-        setSyncStatus('error');
-        setSyncError(msg);
+        handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}/workspaces/main_workspace`);
+        const isOffline =
+          msg.includes('offline') ||
+          msg.includes('Could not reach') ||
+          msg.includes('token-service-api');
+        setSyncStatus(isOffline ? 'offline' : 'error');
+        setSyncError(isOffline ? 'Operating offline: workspace preserved locally with compression' : msg);
       }
     },
     [user]
