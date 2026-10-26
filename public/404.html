@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>One Workspace - Redirecting</title>
+    <script type="text/javascript">
+      // GitHub Pages SPA redirect fallback
+      // Preserves URL paths and hashes on refresh and deep links
+      var pathSegmentsToKeep = 1;
+      var l = window.location;
+      var pathParts = l.pathname.split('/');
+      
+      // Check if root or subpath
+      var repoBase = pathParts.slice(0, 1 + pathSegmentsToKeep).join('/');
+      var route = pathParts.slice(1 + pathSegmentsToKeep).join('/').replace(/&/g, '~and~');
+      
+      var target = l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        repoBase + '/?' + (route ? '/' + route : '') +
+        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        l.hash;
+        
+      l.replace(target);
+    </script>
+  </head>
+  <body>
+    <p style="font-family: sans-serif; text-align: center; margin-top: 20vh; color: #64748b;">
+      Redirecting to One Workspace...
+    </p>
+  </body>
+</html>
