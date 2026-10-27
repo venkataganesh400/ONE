@@ -21,12 +21,18 @@ import {
   analyzeDocumentLocally,
 } from './workspace.ts';
 
+// When running on GitHub Pages (static host), forward AI calls to the active AI Studio backend proxy
+export const API_BASE_URL =
+  typeof window !== 'undefined' && window.location.hostname.includes('github.io')
+    ? 'https://ais-dev-4elpyqdjp5mhu32dfoi7db-742034471925.asia-northeast1.run.app'
+    : '';
+
 export async function requestSmartSchedule(
   data: StudentWorkspaceData,
   startHour: string = '08:30'
 ): Promise<{ coachNote: string; blocks: ScheduleBlock[]; source: 'gemini' | 'local' }> {
   try {
-    const res = await fetch('/api/gemini/schedule', {
+    const res = await fetch(`${API_BASE_URL}/api/gemini/schedule`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -95,7 +101,7 @@ export async function requestTaskDecomposition(
   focusCadenceMinutes: number
 ): Promise<{ subtasks: TaskSubstep[]; source: 'gemini' | 'local' }> {
   try {
-    const res = await fetch('/api/gemini/decompose-task', {
+    const res = await fetch(`${API_BASE_URL}/api/gemini/decompose-task`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, course, dueDate, focusCadenceMinutes }),
@@ -135,7 +141,7 @@ export async function requestNoteActiveRecall(
   source: 'gemini' | 'local';
 }> {
   try {
-    const res = await fetch('/api/gemini/note-quiz', {
+    const res = await fetch(`${API_BASE_URL}/api/gemini/note-quiz`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, course, content }),
@@ -186,7 +192,7 @@ export async function requestSmartExpenseParse(
   source: 'gemini' | 'local';
 }> {
   try {
-    const res = await fetch('/api/gemini/parse-expenses', {
+    const res = await fetch(`${API_BASE_URL}/api/gemini/parse-expenses`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -250,7 +256,7 @@ export async function requestCourseSyllabus(
   name: string
 ): Promise<{ topics: SyllabusTopicItem[]; source: 'gemini' | 'local' }> {
   try {
-    const res = await fetch('/api/gemini/course-syllabus', {
+    const res = await fetch(`${API_BASE_URL}/api/gemini/course-syllabus`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code, name }),
@@ -296,7 +302,7 @@ export async function requestAcademicCoach(
   data: StudentWorkspaceData
 ): Promise<AcademicCoachResponse> {
   try {
-    const res = await fetch('/api/gemini/academic-coach', {
+    const res = await fetch(`${API_BASE_URL}/api/gemini/academic-coach`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: AbortSignal.timeout(8500),
@@ -433,7 +439,7 @@ export async function requestWorkloadIntake(
   const timetableToday = timetableSlots.filter((s) => s.dayOfWeek === currentDay);
 
   try {
-    const res = await fetch('/api/gemini/intake-and-classify', {
+    const res = await fetch(`${API_BASE_URL}/api/gemini/intake-and-classify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: AbortSignal.timeout(9500),
@@ -523,7 +529,7 @@ export async function requestTimetableParse(
   rawText: string
 ): Promise<{ summary: string; slots: TimetableSlot[]; source: 'gemini' | 'local' }> {
   try {
-    const res = await fetch('/api/gemini/parse-timetable', {
+    const res = await fetch(`${API_BASE_URL}/api/gemini/parse-timetable`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: AbortSignal.timeout(9500),
@@ -577,7 +583,7 @@ export async function requestDocumentAnalysis(
   customQuery?: string
 ): Promise<DocumentAnalysisResult> {
   try {
-    const res = await fetch('/api/gemini/analyze-document', {
+    const res = await fetch(`${API_BASE_URL}/api/gemini/analyze-document`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: AbortSignal.timeout(12000),

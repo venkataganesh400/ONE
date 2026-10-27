@@ -130,7 +130,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>
 
         {/* Auth Method Navigation Tabs */}
-        <div className="px-6 pt-4 flex gap-1.5 border-b border-[#EAE3D6] dark:border-[#2C241E] pb-3">
+        <div className="px-4 sm:px-6 pt-3 sm:pt-4 flex items-center gap-1.5 border-b border-[#EAE3D6] dark:border-[#2C241E] pb-3 overflow-x-auto scrollbar-none">
           <button
             type="button"
             onClick={() => {
@@ -138,7 +138,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               onClearError();
               setLocalValidation(null);
             }}
-            className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-semibold transition text-center flex items-center justify-center gap-1.5 ${
+            className={`whitespace-nowrap shrink-0 sm:flex-1 py-1.5 px-3 rounded-xl text-[11px] sm:text-xs font-semibold transition text-center flex items-center justify-center gap-1.5 ${
               tab === 'student'
                 ? 'bg-[#3C2E25] text-white dark:bg-[#FAF7F2] dark:text-[#1C1917] shadow-xs'
                 : 'bg-white/70 dark:bg-[#25201B] text-[#786C60] dark:text-[#A89E92] hover:bg-white dark:hover:bg-[#2E2822]'
@@ -154,7 +154,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               onClearError();
               setLocalValidation(null);
             }}
-            className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-semibold transition text-center flex items-center justify-center gap-1.5 ${
+            className={`whitespace-nowrap shrink-0 sm:flex-1 py-1.5 px-3 rounded-xl text-[11px] sm:text-xs font-semibold transition text-center flex items-center justify-center gap-1.5 ${
               tab === 'google'
                 ? 'bg-[#3C2E25] text-white dark:bg-[#FAF7F2] dark:text-[#1C1917] shadow-xs'
                 : 'bg-white/70 dark:bg-[#25201B] text-[#786C60] dark:text-[#A89E92] hover:bg-white dark:hover:bg-[#2E2822]'
@@ -170,7 +170,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               onClearError();
               setLocalValidation(null);
             }}
-            className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-semibold transition text-center flex items-center justify-center gap-1.5 ${
+            className={`whitespace-nowrap shrink-0 sm:flex-1 py-1.5 px-3 rounded-xl text-[11px] sm:text-xs font-semibold transition text-center flex items-center justify-center gap-1.5 ${
               tab === 'email'
                 ? 'bg-[#3C2E25] text-white dark:bg-[#FAF7F2] dark:text-[#1C1917] shadow-xs'
                 : 'bg-white/70 dark:bg-[#25201B] text-[#786C60] dark:text-[#A89E92] hover:bg-white dark:hover:bg-[#2E2822]'

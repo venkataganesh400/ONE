@@ -266,11 +266,11 @@ export const StudentTasksView: React.FC<StudentTasksViewProps> = ({
           />
         </div>
 
-        <div className="flex items-center gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#F0EBE2] dark:border-[#2C2621]">
+        <div className="flex flex-wrap items-center gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#F0EBE2] dark:border-[#2C2621]">
           <select
             value={newCourse}
             onChange={(e) => setNewCourse(e.target.value)}
-            className="px-2.5 py-1.5 rounded-xl bg-[#FAF7F2] dark:bg-[#28221D] border border-[#E0D8CB] dark:border-[#383028] text-xs font-mono text-[#1C1917] dark:text-[#FAF7F2] focus:outline-none"
+            className="flex-1 sm:flex-initial px-2.5 py-1.5 rounded-xl bg-[#FAF7F2] dark:bg-[#28221D] border border-[#E0D8CB] dark:border-[#383028] text-xs font-mono text-[#1C1917] dark:text-[#FAF7F2] focus:outline-none"
           >
             {courseCodes.map((c) => (
               <option key={c} value={c}>{c}</option>
@@ -281,7 +281,7 @@ export const StudentTasksView: React.FC<StudentTasksViewProps> = ({
           <select
             value={newPriority}
             onChange={(e) => setNewPriority(e.target.value as 'low' | 'medium' | 'high')}
-            className="px-2.5 py-1.5 rounded-xl bg-[#FAF7F2] dark:bg-[#28221D] border border-[#E0D8CB] dark:border-[#383028] text-xs font-medium text-[#1C1917] dark:text-[#FAF7F2] focus:outline-none"
+            className="flex-1 sm:flex-initial px-2.5 py-1.5 rounded-xl bg-[#FAF7F2] dark:bg-[#28221D] border border-[#E0D8CB] dark:border-[#383028] text-xs font-medium text-[#1C1917] dark:text-[#FAF7F2] focus:outline-none"
           >
             <option value="high">High !</option>
             <option value="medium">Medium</option>
@@ -292,12 +292,12 @@ export const StudentTasksView: React.FC<StudentTasksViewProps> = ({
             type="date"
             value={newDueDate}
             onChange={(e) => setNewDueDate(e.target.value)}
-            className="px-2.5 py-1.5 rounded-xl bg-[#FAF7F2] dark:bg-[#28221D] border border-[#E0D8CB] dark:border-[#383028] text-xs font-mono text-[#1C1917] dark:text-[#FAF7F2] focus:outline-none"
+            className="w-full sm:w-auto px-2.5 py-1.5 rounded-xl bg-[#FAF7F2] dark:bg-[#28221D] border border-[#E0D8CB] dark:border-[#383028] text-xs font-mono text-[#1C1917] dark:text-[#FAF7F2] focus:outline-none"
           />
 
           <button
             type="submit"
-            className="px-3.5 py-1.5 rounded-xl bg-[#3C2E25] dark:bg-[#FAF7F2] text-[#FAF7F2] dark:text-[#1C1917] text-xs font-semibold hover:opacity-90 transition shrink-0"
+            className="w-full sm:w-auto px-4 py-1.5 rounded-xl bg-[#3C2E25] dark:bg-[#FAF7F2] text-[#FAF7F2] dark:text-[#1C1917] text-xs font-semibold hover:opacity-90 transition shrink-0"
           >
             Add
           </button>

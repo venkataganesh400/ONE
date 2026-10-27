@@ -467,13 +467,13 @@ export const SubjectDocumentModal: React.FC<SubjectDocumentModalProps> = ({
                 {/* Sub-tabs for Analysis views */}
                 {currentDoc.analysis ? (
                   <div className="space-y-4">
-                    <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[#EFEAE1] dark:bg-[#221D18] text-xs font-semibold">
+                    <div className="flex items-center gap-1 sm:gap-1.5 p-1 rounded-xl bg-[#EFEAE1] dark:bg-[#221D18] text-xs font-semibold overflow-x-auto scrollbar-none">
                       <button
                         type="button"
                         onClick={() => setActiveTab('summary')}
-                        className={`flex-1 py-1.5 px-3 rounded-lg transition text-center ${
+                        className={`px-3 py-1.5 rounded-lg transition text-center whitespace-nowrap shrink-0 sm:flex-1 ${
                           activeTab === 'summary'
-                            ? 'bg-white dark:bg-[#2C2620] text-[#1C1917] dark:text-[#FAF7F2] shadow-2xs'
+                            ? 'bg-white dark:bg-[#2C2620] text-[#1C1917] dark:text-[#FAF7F2] shadow-2xs font-bold'
                             : 'text-[#665D54] dark:text-[#A89E92] hover:text-[#1C1917]'
                         }`}
                       >
@@ -482,9 +482,9 @@ export const SubjectDocumentModal: React.FC<SubjectDocumentModalProps> = ({
                       <button
                         type="button"
                         onClick={() => setActiveTab('exam')}
-                        className={`flex-1 py-1.5 px-3 rounded-lg transition text-center ${
+                        className={`px-3 py-1.5 rounded-lg transition text-center whitespace-nowrap shrink-0 sm:flex-1 ${
                           activeTab === 'exam'
-                            ? 'bg-white dark:bg-[#2C2620] text-[#1C1917] dark:text-[#FAF7F2] shadow-2xs'
+                            ? 'bg-white dark:bg-[#2C2620] text-[#1C1917] dark:text-[#FAF7F2] shadow-2xs font-bold'
                             : 'text-[#665D54] dark:text-[#A89E92] hover:text-[#1C1917]'
                         }`}
                       >
@@ -493,20 +493,20 @@ export const SubjectDocumentModal: React.FC<SubjectDocumentModalProps> = ({
                       <button
                         type="button"
                         onClick={() => setActiveTab('quiz')}
-                        className={`flex-1 py-1.5 px-3 rounded-lg transition text-center ${
+                        className={`px-3 py-1.5 rounded-lg transition text-center whitespace-nowrap shrink-0 sm:flex-1 ${
                           activeTab === 'quiz'
-                            ? 'bg-white dark:bg-[#2C2620] text-[#1C1917] dark:text-[#FAF7F2] shadow-2xs'
+                            ? 'bg-white dark:bg-[#2C2620] text-[#1C1917] dark:text-[#FAF7F2] shadow-2xs font-bold'
                             : 'text-[#665D54] dark:text-[#A89E92] hover:text-[#1C1917]'
                         }`}
                       >
-                        Active Recall Quiz
+                        Recall Quiz
                       </button>
                       <button
                         type="button"
                         onClick={() => setActiveTab('ask')}
-                        className={`flex-1 py-1.5 px-3 rounded-lg transition text-center ${
+                        className={`px-3 py-1.5 rounded-lg transition text-center whitespace-nowrap shrink-0 sm:flex-1 ${
                           activeTab === 'ask'
-                            ? 'bg-white dark:bg-[#2C2620] text-[#1C1917] dark:text-[#FAF7F2] shadow-2xs'
+                            ? 'bg-white dark:bg-[#2C2620] text-[#1C1917] dark:text-[#FAF7F2] shadow-2xs font-bold'
                             : 'text-[#665D54] dark:text-[#A89E92] hover:text-[#1C1917]'
                         }`}
                       >

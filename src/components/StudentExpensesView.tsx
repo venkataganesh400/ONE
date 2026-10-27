@@ -357,7 +357,7 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
           />
         </div>
 
-        <div className="flex items-center gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#F0EBE2] dark:border-[#2C2621]">
+        <div className="flex flex-wrap items-center gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#F0EBE2] dark:border-[#2C2621]">
           <input
             type="number"
             required
@@ -400,7 +400,7 @@ export const StudentExpensesView: React.FC<StudentExpensesViewProps> = ({
         {/* Ledger Column */}
         <div className="lg:col-span-8 space-y-4">
           {/* Category Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto py-1">
+          <div className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none">
             <button
               type="button"
               onClick={() => setSelectedCategoryFilter('all')}

@@ -431,20 +431,20 @@ export const StudentStudyView: React.FC<StudentStudyViewProps> = ({
               </div>
 
               {/* Quick Action Buttons with Decrement & Increment Controls */}
-              <div className="pt-2 border-t border-zinc-200 dark:border-zinc-900 flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-1.5">
+              <div className="pt-2 border-t border-zinc-200 dark:border-zinc-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
                   <button
                     type="button"
                     onClick={() => handleLogHour(course.id, -1)}
                     aria-label={`Subtract 1 study hour from ${course.code}`}
-                    className="px-3 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-mono font-medium text-zinc-700 dark:text-zinc-300 hover:border-zinc-500 transition"
+                    className="px-2.5 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-mono font-medium text-zinc-700 dark:text-zinc-300 hover:border-zinc-500 transition shrink-0"
                   >
                     -1h
                   </button>
                   <button
                     type="button"
                     onClick={() => handleLogHour(course.id, 1)}
-                    className="px-3.5 py-1.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-black text-xs font-semibold hover:opacity-90 transition active:scale-95"
+                    className="px-3 py-1.5 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-black text-xs font-semibold hover:opacity-90 transition active:scale-95 shrink-0"
                   >
                     +1h Study
                   </button>
@@ -452,24 +452,24 @@ export const StudentStudyView: React.FC<StudentStudyViewProps> = ({
                     type="button"
                     onClick={() => handleCompleteTopic(course.id, -1)}
                     aria-label={`Subtract 1 completed topic from ${course.code}`}
-                    className="px-3 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-mono font-medium text-zinc-700 dark:text-zinc-300 hover:border-zinc-500 transition"
+                    className="px-2.5 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-mono font-medium text-zinc-700 dark:text-zinc-300 hover:border-zinc-500 transition shrink-0"
                   >
                     -1 Topic
                   </button>
                   <button
                     type="button"
                     onClick={() => handleCompleteTopic(course.id, 1)}
-                    className="px-3.5 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 hover:border-zinc-500 text-xs font-medium transition active:scale-95"
+                    className="px-3 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 hover:border-zinc-500 text-xs font-medium transition active:scale-95 shrink-0"
                   >
                     +1 Topic
                   </button>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   <button
                     type="button"
                     onClick={() => setActiveDocModalCourse(course)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#D8A775]/50 bg-gradient-to-r from-amber-500/10 to-transparent text-xs font-semibold text-[#8A5836] dark:text-[#D8A775] hover:border-[#8A5836] transition shadow-2xs"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#D8A775]/50 bg-gradient-to-r from-amber-500/10 to-transparent text-xs font-semibold text-[#8A5836] dark:text-[#D8A775] hover:border-[#8A5836] transition shadow-2xs shrink-0"
                     title="Manage PDFs, syllabus notes & analyze with Gemini"
                   >
                     <FileText className="w-3.5 h-3.5" />
@@ -482,7 +482,7 @@ export const StudentStudyView: React.FC<StudentStudyViewProps> = ({
                   <button
                     type="button"
                     onClick={() => toggleExpandCourse(course.id)}
-                    className="inline-flex items-center gap-1 text-xs font-mono font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white"
+                    className="inline-flex items-center gap-1 text-xs font-mono font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white shrink-0"
                   >
                     <span>Syllabus ({course.syllabusTopics?.length || 0})</span>
                     {isExpanded ? (

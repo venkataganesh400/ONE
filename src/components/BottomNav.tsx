@@ -20,11 +20,11 @@ const NAV_ITEMS: {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
 }[] = [
-  { id: 'planner', label: 'Overview', icon: LayoutGrid },
+  { id: 'planner', label: 'Home', icon: LayoutGrid },
   { id: 'tasks', label: 'Tasks', icon: CheckSquare },
-  { id: 'study', label: 'Studies', icon: GraduationCap },
+  { id: 'study', label: 'Study', icon: GraduationCap },
   { id: 'focus', label: 'Focus', icon: Timer },
-  { id: 'expenses', label: 'Expenses', icon: Wallet },
+  { id: 'expenses', label: 'Wallet', icon: Wallet },
   { id: 'notes', label: 'Notes', icon: BookText },
 ];
 
@@ -76,18 +76,18 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                 type="button"
                 onClick={() => onSelectTab(item.id)}
                 aria-current={isActive ? 'page' : undefined}
-                className={`relative z-10 min-w-0 min-h-[46px] sm:min-h-[44px] px-0.5 sm:px-3 py-1.5 sm:py-2 rounded-[20px] sm:rounded-full flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 smooth-spring active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3C2E25] dark:focus-visible:outline-[#FAF7F2] ${
+                className={`relative z-10 min-w-0 min-h-[44px] sm:min-h-[44px] px-0.5 sm:px-3 py-1 sm:py-2 rounded-[20px] sm:rounded-full flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 smooth-spring active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3C2E25] dark:focus-visible:outline-[#FAF7F2] ${
                   isActive
                     ? 'text-white dark:text-[#1A1613] font-semibold'
                     : 'text-[#665D54] dark:text-[#A89E92] hover:text-[#1C1917] dark:hover:text-[#FAF7F2] font-medium'
                 }`}
               >
                 <Icon
-                  className={`w-4 h-4 shrink-0 smooth-spring ${
+                  className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 smooth-spring ${
                     isActive ? 'scale-105' : 'scale-100'
                   }`}
                 />
-                <span className="text-[10px] sm:text-xs tracking-tight leading-none truncate max-w-full">
+                <span className="text-[9.5px] sm:text-xs tracking-tight leading-none truncate max-w-full block">
                   {item.label}
                 </span>
                 {showTaskCount && (
