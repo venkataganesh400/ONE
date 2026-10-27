@@ -610,6 +610,99 @@ Map each class to:
     }
   });
 
+  // 9. AI Subject Document Analysis & Study Exam Synthesizer
+  app.post('/api/gemini/analyze-document', async (req, res) => {
+    try {
+      const {
+        docName = 'Subject Document',
+        docText,
+        courseCode = 'ACAD',
+        courseName = 'Subject Course',
+        customQuery = '',
+      } = req.body || {};
+
+      if (!docText || typeof docText !== 'string') {
+        res.status(400).json({ error: 'Document content is required' });
+        return;
+      }
+
+      const ai = getGenAIClient();
+      if (!ai) {
+        res.status(503).json({ error: 'Gemini API key not configured on server' });
+        return;
+      }
+
+      const prompt = `You are an elite university professor and personal academic tutor.
+Analyze this academic document attached to the student's enrolled course "${courseCode}: ${courseName}".
+Document Title: "${docName}"
+Document Excerpt / Content:
+${docText.slice(0, 18000)}
+
+${customQuery ? `User's Specific Query / Instruction: "${customQuery}"` : ''}
+
+Provide a comprehensive, high-yield academic breakdown:
+1. "summary": A crisp, 3 to 4 sentence executive synthesis of the material, core definitions, and overarching theories.
+2. "keyTopics": 4 to 6 critical topics, theorems, or problem classes covered in this document.
+3. "examPredictions": 3 to 4 realistic midterm/final exam questions or problem themes most likely to be tested by professors from this document.
+4. "recallQuiz": 4 rigorous active-recall flashcard pairs (question and answer) designed for high retention.
+5. "studyAdvice": 1-2 actionable, concrete study tactics tailored to mastering this specific document.
+6. "customAnswer": ${customQuery ? 'A direct, thorough, and helpful answer to the user query grounded in this document.' : '""'}`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.8-flash',
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              summary: {
+                type: Type.STRING,
+                description: 'Executive academic summary of the document.',
+              },
+              keyTopics: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+              },
+              examPredictions: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+              },
+              recallQuiz: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    question: { type: Type.STRING },
+                    answer: { type: Type.STRING },
+                  },
+                  required: ['question', 'answer'],
+                },
+              },
+              studyAdvice: {
+                type: Type.STRING,
+                description: 'Specific study technique for this document.',
+              },
+              customAnswer: {
+                type: Type.STRING,
+                description: 'Answer to custom question if provided.',
+              },
+            },
+            required: ['summary', 'keyTopics', 'examPredictions', 'recallQuiz', 'studyAdvice'],
+          },
+        },
+      });
+
+      const parsed = JSON.parse((response.text || '{}').trim());
+      res.json(parsed);
+    } catch (error) {
+      console.error('Gemini analyze-document error:', error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : 'Failed to analyze document',
+      });
+    }
+  });
+
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({

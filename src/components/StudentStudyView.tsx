@@ -8,14 +8,17 @@ import {
   ChevronDown,
   ChevronUp,
   BookOpen,
+  FileText,
 } from 'lucide-react';
 import type {
+  CourseDocument,
   CourseItem,
   StudentWorkspaceData,
   SyllabusTopicItem,
 } from '../types/index.ts';
 import { calculateStudyMetrics } from '../utils/workspace.ts';
 import { requestCourseSyllabus } from '../utils/aiClient.ts';
+import { SubjectDocumentModal } from './SubjectDocumentModal.tsx';
 
 interface StudentStudyViewProps {
   data: StudentWorkspaceData;
@@ -41,6 +44,18 @@ export const StudentStudyView: React.FC<StudentStudyViewProps> = ({
   });
   const [newTopicInputs, setNewTopicInputs] = useState<Record<string, string>>({});
   const [generatingCourseId, setGeneratingCourseId] = useState<string | null>(null);
+  const [activeDocModalCourse, setActiveDocModalCourse] = useState<CourseItem | null>(null);
+
+  const handleSaveCourseDocuments = (courseId: string, docs: CourseDocument[]) => {
+    onUpdateData((prev) => ({
+      ...prev,
+      courses: prev.courses.map((c) =>
+        c.id === courseId ? { ...c, documents: docs } : c
+      ),
+    }));
+    // Keep active modal course updated in state
+    setActiveDocModalCourse((prev) => (prev && prev.id === courseId ? { ...prev, documents: docs } : prev));
+  };
 
   const metrics = calculateStudyMetrics(data.courses);
   const totalCredits = data.courses.reduce((acc, c) => acc + c.credits, 0);
@@ -450,18 +465,33 @@ export const StudentStudyView: React.FC<StudentStudyViewProps> = ({
                   </button>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => toggleExpandCourse(course.id)}
-                  className="inline-flex items-center gap-1 text-xs font-mono font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white"
-                >
-                  <span>Syllabus ({course.syllabusTopics?.length || 0})</span>
-                  {isExpanded ? (
-                    <ChevronUp className="w-3.5 h-3.5" />
-                  ) : (
-                    <ChevronDown className="w-3.5 h-3.5" />
-                  )}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveDocModalCourse(course)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#D8A775]/50 bg-gradient-to-r from-amber-500/10 to-transparent text-xs font-semibold text-[#8A5836] dark:text-[#D8A775] hover:border-[#8A5836] transition shadow-2xs"
+                    title="Manage PDFs, syllabus notes & analyze with Gemini"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Docs ({course.documents?.length || 0})</span>
+                    {course.documents?.some((d) => d.analysis) && (
+                      <Sparkles className="w-3 h-3 text-[#8A5836] dark:text-[#D8A775]" />
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => toggleExpandCourse(course.id)}
+                    className="inline-flex items-center gap-1 text-xs font-mono font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white"
+                  >
+                    <span>Syllabus ({course.syllabusTopics?.length || 0})</span>
+                    {isExpanded ? (
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    ) : (
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* Expandable Named Syllabus Topic Checklist */}
@@ -552,6 +582,15 @@ export const StudentStudyView: React.FC<StudentStudyViewProps> = ({
           );
         })}
       </div>
+      )}
+
+      {activeDocModalCourse && (
+        <SubjectDocumentModal
+          isOpen={Boolean(activeDocModalCourse)}
+          onClose={() => setActiveDocModalCourse(null)}
+          course={activeDocModalCourse}
+          onSaveDocuments={(docs) => handleSaveCourseDocuments(activeDocModalCourse.id, docs)}
+        />
       )}
     </div>
   );

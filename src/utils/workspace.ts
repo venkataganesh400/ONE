@@ -1170,3 +1170,114 @@ export function classifyAndScheduleTasksLocally(
   };
 }
 
+export function analyzeDocumentLocally(
+  docName: string,
+  docText: string,
+  courseCode: string,
+  courseName: string,
+  customQuery?: string
+): {
+  summary: string;
+  keyTopics: string[];
+  examPredictions: string[];
+  recallQuiz: { question: string; answer: string }[];
+  studyAdvice: string;
+  customAnswer?: string;
+} {
+  const cleanLines = docText
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.length > 15);
+
+  const keySentences = cleanLines.slice(0, 5);
+
+  const summary =
+    keySentences.length > 0
+      ? `This document ("${docName}") covers essential academic material for ${courseCode} (${courseName}). Key emphasis includes: ${keySentences.map((s) => s.replace(/^[-*0-9.)+\s]+/, '')).join(' ')}`
+      : `Academic notes and reference specifications for ${courseCode}: ${courseName} regarding "${docName}".`;
+
+  const words = docText
+    .replace(/[^a-zA-Z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 5);
+
+  const uniqueKeywords = Array.from(new Set(words)).slice(0, 6);
+
+  const keyTopics: string[] =
+    uniqueKeywords.length >= 3
+      ? uniqueKeywords.map((kw, i) => `${kw.charAt(0).toUpperCase() + kw.slice(1)} Theoretical Framework ${i + 1}`)
+      : [
+          `${courseCode} Foundational Axioms`,
+          `Applied Problem Patterns in ${docName}`,
+          `Critical Boundary Constraints`,
+          `Exam-Tested Proof Techniques`,
+        ];
+
+  const examPredictions: string[] = [
+    `Prove or derive the primary relationship specified in the opening sections of "${docName}".`,
+    `Analyze edge-case failure modes and constraints discussed in ${courseCode}.`,
+    `Solve a multi-part synthesis problem combining ${keyTopics[0] || 'core concepts'} with real-world scenarios.`,
+  ];
+
+  const recallQuiz = [
+    {
+      question: `What core objective or concept does "${docName}" establish in ${courseCode}?`,
+      answer: keySentences[0] || `Fundamental principles and formulas foundational to ${courseName}.`,
+    },
+    {
+      question: `Which key topic in this document has the highest probability of appearing on exams?`,
+      answer: `${keyTopics[0] || 'Primary theorems'} due to its frequent appearance in problem sets.`,
+    },
+    {
+      question: `What constraint or condition must you verify before applying the techniques in this document?`,
+      answer: `Check all base case boundaries, preconditions, and valid input domains specified in ${docName}.`,
+    },
+    {
+      question: `How does the material in "${docName}" connect with the broader ${courseName} syllabus?`,
+      answer: `It serves as the analytical backbone for upcoming assignment labs and midterm evaluations.`,
+    },
+  ];
+
+  const studyAdvice = `Front-load 40 minutes to write out formulas and proofs in "${docName}" from memory, then self-grade using the recall quiz above.`;
+
+  let customAnswer: string | undefined = undefined;
+  if (customQuery) {
+    const tokens = customQuery
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((t) => t.length > 2);
+
+    let bestScore = 0;
+    let bestLine = '';
+
+    for (const line of cleanLines) {
+      const lineLower = line.toLowerCase();
+      let score = 0;
+      for (const token of tokens) {
+        if (lineLower.includes(token)) {
+          score += token.length > 4 ? 2 : 1;
+        }
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        bestLine = line;
+      }
+    }
+
+    customAnswer = bestScore > 0
+      ? `Based on "${docName}": "${bestLine}". In the context of ${courseCode}, this directly addresses your question.`
+      : `Regarding "${customQuery}": In "${docName}" for ${courseCode}, review the foundational principles and definitions to apply this concept accurately.`;
+  }
+
+  return {
+    summary,
+    keyTopics,
+    examPredictions,
+    recallQuiz,
+    studyAdvice,
+    customAnswer,
+  };
+}
+
+

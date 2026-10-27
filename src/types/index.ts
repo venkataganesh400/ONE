@@ -70,6 +70,24 @@ export interface SyllabusTopicItem {
   completed: boolean;
 }
 
+export interface CourseDocument {
+  id: string;
+  name: string;
+  type: 'pdf' | 'doc' | 'syllabus' | 'notes';
+  sizeFormatted: string;
+  uploadedAt: string;
+  contentSnippet: string;
+  fullText?: string;
+  analysis?: {
+    summary: string;
+    keyTopics: string[];
+    examPredictions: string[];
+    recallQuiz?: { question: string; answer: string }[];
+    studyAdvice: string;
+    analysisDate: string;
+  };
+}
+
 export interface CourseItem {
   id: string;
   code: string;
@@ -81,6 +99,7 @@ export interface CourseItem {
   grade: string;
   credits: number;
   syllabusTopics?: SyllabusTopicItem[];
+  documents?: CourseDocument[];
 }
 
 export type ExpenseCategory =

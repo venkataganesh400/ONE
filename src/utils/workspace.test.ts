@@ -13,6 +13,7 @@ import {
   parseNaturalLanguageExpensesLocally,
   parseTimetableLocally,
   classifyAndScheduleTasksLocally,
+  analyzeDocumentLocally,
   INITIAL_STUDENT_WORKSPACE,
 } from './workspace.ts';
 
@@ -162,4 +163,28 @@ Review MATH-204 problem set`;
   assert.equal(result.longerTermTasks[0].classification, 'longer_term');
   assert.ok(result.scheduleBlocks.length >= 2);
 });
+
+test('analyzeDocumentLocally extracts summary, exam predictions, recall questions and handles custom queries', () => {
+  const sampleDoc = `Relational database normalization involves decomposing relations to eliminate anomalies.
+First normal form (1NF) enforces atomic values and unique records.
+Second normal form (2NF) eliminates partial functional dependencies.
+Third normal form (3NF) removes transitive dependencies.
+Boyce-Codd Normal Form (BCNF) strictly requires every determinant to be a superkey.`;
+
+  const analysis = analyzeDocumentLocally(
+    'Database_Normalization.pdf',
+    sampleDoc,
+    'CS-402',
+    'Database Systems',
+    'What does Boyce-Codd Normal Form require?'
+  );
+
+  assert.ok(analysis.summary.length > 20);
+  assert.ok(analysis.keyTopics.length >= 3);
+  assert.equal(analysis.examPredictions.length, 3);
+  assert.equal(analysis.recallQuiz.length, 4);
+  assert.ok(analysis.studyAdvice.includes('Database_Normalization.pdf'));
+  assert.ok(analysis.customAnswer?.toLowerCase().includes('boyce-codd'));
+});
+
 

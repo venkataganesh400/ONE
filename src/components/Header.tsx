@@ -328,7 +328,7 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          <PWAInstallButton compact />
+          <PWAInstallButton compact={false} />
         </div>
       </div>
     </header>

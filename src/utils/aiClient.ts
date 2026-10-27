@@ -18,6 +18,7 @@ import {
   getTodayDayOfWeek,
   parseNaturalLanguageExpensesLocally,
   parseTimetableLocally,
+  analyzeDocumentLocally,
 } from './workspace.ts';
 
 export async function requestSmartSchedule(
@@ -529,4 +530,64 @@ export async function requestTimetableParse(
   const local = parseTimetableLocally(rawText);
   return { ...local, source: 'local' };
 }
+
+export interface DocumentAnalysisResult {
+  summary: string;
+  keyTopics: string[];
+  examPredictions: string[];
+  recallQuiz: { question: string; answer: string }[];
+  studyAdvice: string;
+  customAnswer?: string;
+  source: 'gemini' | 'local';
+}
+
+export async function requestDocumentAnalysis(
+  docName: string,
+  docText: string,
+  courseCode: string,
+  courseName: string,
+  customQuery?: string
+): Promise<DocumentAnalysisResult> {
+  try {
+    const res = await fetch('/api/gemini/analyze-document', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(12000),
+      body: JSON.stringify({
+        docName,
+        docText,
+        courseCode,
+        courseName,
+        customQuery,
+      }),
+    });
+
+    if (res.ok) {
+      const json = await res.json();
+      if (json.summary && Array.isArray(json.keyTopics)) {
+        return {
+          summary: json.summary,
+          keyTopics: json.keyTopics,
+          examPredictions: Array.isArray(json.examPredictions) ? json.examPredictions : [],
+          recallQuiz: Array.isArray(json.recallQuiz) ? json.recallQuiz : [],
+          studyAdvice: json.studyAdvice || 'Focus on active recall and key proofs.',
+          customAnswer: json.customAnswer || '',
+          source: 'gemini',
+        };
+      }
+    }
+  } catch {
+    // Offline / fallback
+  }
+
+  const local = analyzeDocumentLocally(
+    docName,
+    docText,
+    courseCode,
+    courseName,
+    customQuery
+  );
+  return { ...local, source: 'local' };
+}
+
 
