@@ -16,7 +16,7 @@ export default defineConfig(() => {
         manifestFilename: 'manifest.webmanifest',
         includeAssets: ['favicon.ico', 'icon.svg', 'apple-touch-icon.png'],
         manifest: {
-          id: '/',
+          id: './',
           name: 'One — Student Workspace',
           short_name: 'One',
           description: 'Minimal, offline-first student personal workspace, task manager, timetable integrator, and academic alignment engine.',
