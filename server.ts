@@ -24,9 +24,55 @@ function getGenAIClient(): GoogleGenAI | null {
   });
 }
 
+/**
+ * Resilient multi-model Gemini caller with automatic fallback across proven available models.
+ * Prioritizes gemini-3.5-flash for rapid response, followed by gemini-3.8-flash and gemini-3.1-flash-lite.
+ */
+async function callGeminiResilient(
+  ai: GoogleGenAI,
+  prompt: string,
+  config?: Record<string, unknown>
+): Promise<string> {
+  const models = ['gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-3.1-flash-lite'];
+  let lastError: unknown = null;
+
+  for (const model of models) {
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents: prompt,
+        config,
+      });
+      const text = (response.text || '').trim();
+      if (text) {
+        return text;
+      }
+    } catch (err) {
+      lastError = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[Gemini Resilient] Model ${model} failed (${msg.slice(0, 100)}), falling back...`);
+    }
+  }
+
+  throw lastError || new Error('All candidate Gemini models failed to generate output');
+}
+
+/**
+ * Safely strips markdown code blocks (```json ... ```) and parses JSON.
+ */
+function parseGeminiJSON(rawText: string): any {
+  let cleaned = rawText.trim();
+  if (cleaned.startsWith('```json')) {
+    cleaned = cleaned.replace(/^```json\s*/i, '').replace(/\s*```$/i, '');
+  } else if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```\s*/i, '').replace(/\s*```$/i, '');
+  }
+  return JSON.parse(cleaned.trim());
+}
+
 async function startServer() {
   const app = express();
-  app.use(express.json({ limit: '1mb' }));
+  app.use(express.json({ limit: '10mb' }));
 
   // 1. AI Daily Time-Block Schedule Architect
   app.post('/api/gemini/schedule', async (req, res) => {
@@ -59,43 +105,39 @@ Student Context:
 
 Generate 5 to 7 chronological time blocks for today starting around ${startHour}. Alternate deep focus blocks with short recovery/meal breaks, prioritizing urgent exams, high-priority tasks, and under-logged courses.`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              coachNote: {
-                type: Type.STRING,
-                description: 'A concise 1-sentence strategic rationale for today’s schedule.',
-              },
-              blocks: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    startTime: { type: Type.STRING, description: '24h time like 09:00' },
-                    endTime: { type: Type.STRING, description: '24h time like 09:50' },
-                    title: { type: Type.STRING, description: 'Specific actionable block title' },
-                    course: { type: Type.STRING, description: 'Course code e.g. CS-301 or BREAK' },
-                    type: {
-                      type: Type.STRING,
-                      description: 'Must be one of: focus, exam_prep, review, break',
-                    },
-                    durationMinutes: { type: Type.INTEGER },
+      const text = await callGeminiResilient(ai, prompt, {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            coachNote: {
+              type: Type.STRING,
+              description: 'A concise 1-sentence strategic rationale for today’s schedule.',
+            },
+            blocks: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  startTime: { type: Type.STRING, description: '24h time like 09:00' },
+                  endTime: { type: Type.STRING, description: '24h time like 09:50' },
+                  title: { type: Type.STRING, description: 'Specific actionable block title' },
+                  course: { type: Type.STRING, description: 'Course code e.g. CS-301 or BREAK' },
+                  type: {
+                    type: Type.STRING,
+                    description: 'Must be one of: focus, exam_prep, review, break',
                   },
-                  required: ['startTime', 'endTime', 'title', 'course', 'type', 'durationMinutes'],
+                  durationMinutes: { type: Type.INTEGER },
                 },
+                required: ['startTime', 'endTime', 'title', 'course', 'type', 'durationMinutes'],
               },
             },
-            required: ['coachNote', 'blocks'],
           },
+          required: ['coachNote', 'blocks'],
         },
       });
 
-      const parsed = JSON.parse((response.text || '{}').trim());
+      const parsed = parseGeminiJSON(text);
       res.json(parsed);
     } catch (error) {
       console.error('Gemini schedule error:', error);
@@ -120,13 +162,13 @@ Generate 5 to 7 chronological time blocks for today starting around ${startHour}
         return;
       }
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: `Break down the following university assignment into 3 to 4 concrete, sequential study sub-steps that fit into ${focusCadenceMinutes}-minute focus blocks.
+      const text = await callGeminiResilient(
+        ai,
+        `Break down the following university assignment into 3 to 4 concrete, sequential study sub-steps that fit into ${focusCadenceMinutes}-minute focus blocks.
 Assignment: "${title}"
 Course: ${course || 'GENERAL'}
 Due Date: ${dueDate || 'Upcoming'}`,
-        config: {
+        {
           responseMimeType: 'application/json',
           responseSchema: {
             type: Type.OBJECT,
@@ -145,10 +187,10 @@ Due Date: ${dueDate || 'Upcoming'}`,
             },
             required: ['subtasks'],
           },
-        },
-      });
+        }
+      );
 
-      const parsed = JSON.parse((response.text || '{}').trim());
+      const parsed = parseGeminiJSON(text);
       res.json(parsed);
     } catch (error) {
       console.error('Gemini decompose-task error:', error);
@@ -173,13 +215,13 @@ Due Date: ${dueDate || 'Upcoming'}`,
         return;
       }
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: `You are a university professor creating an active recall revision sheet and 4 high-yield flashcards from these student lecture notes.
+      const text = await callGeminiResilient(
+        ai,
+        `You are a university professor creating an active recall revision sheet and 4 high-yield flashcards from these student lecture notes.
 Note Title: ${title} (${course})
 Content:
 ${content}`,
-        config: {
+        {
           responseMimeType: 'application/json',
           responseSchema: {
             type: Type.OBJECT,
@@ -203,10 +245,10 @@ ${content}`,
             },
             required: ['summaryBullets', 'flashcards'],
           },
-        },
-      });
+        }
+      );
 
-      const parsed = JSON.parse((response.text || '{}').trim());
+      const parsed = parseGeminiJSON(text);
       res.json(parsed);
     } catch (error) {
       console.error('Gemini note-quiz error:', error);
@@ -231,9 +273,9 @@ ${content}`,
         return;
       }
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: `Parse the student's natural-language spending description into structured expense items, and provide a 1-sentence budget insight using the currency symbol "${currency}".
+      const text = await callGeminiResilient(
+        ai,
+        `Parse the student's natural-language spending description into structured expense items, and provide a 1-sentence budget insight using the currency symbol "${currency}".
 Today's Date: ${today || '2026-10-20'}
 Currency Symbol: ${currency}
 Monthly Budget: ${currency}${monthlyBudget}
@@ -241,7 +283,7 @@ Already Spent: ${currency}${totalSpent}
 Allowed Categories: "Food & Dining", "Books & Supplies", "Coffee & Snacks", "Transport", "Housing & Utilities", "Other"
 
 Student Input: "${rawText}"`,
-        config: {
+        {
           responseMimeType: 'application/json',
           responseSchema: {
             type: Type.OBJECT,
@@ -266,10 +308,10 @@ Student Input: "${rawText}"`,
             },
             required: ['advice', 'items'],
           },
-        },
-      });
+        }
+      );
 
-      const parsed = JSON.parse((response.text || '{}').trim());
+      const parsed = parseGeminiJSON(text);
       res.json(parsed);
     } catch (error) {
       console.error('Gemini parse-expenses error:', error);
@@ -294,10 +336,10 @@ Student Input: "${rawText}"`,
         return;
       }
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: `Generate 6 core university syllabus modules/topics for the course "${code}: ${name}". Keep each topic title concise (3 to 7 words).`,
-        config: {
+      const text = await callGeminiResilient(
+        ai,
+        `Generate 6 core university syllabus modules/topics for the course "${code}: ${name}". Keep each topic title concise (3 to 7 words).`,
+        {
           responseMimeType: 'application/json',
           responseSchema: {
             type: Type.OBJECT,
@@ -309,10 +351,10 @@ Student Input: "${rawText}"`,
             },
             required: ['topics'],
           },
-        },
-      });
+        }
+      );
 
-      const parsed = JSON.parse((response.text || '{}').trim());
+      const parsed = parseGeminiJSON(text);
       res.json(parsed);
     } catch (error) {
       console.error('Gemini course-syllabus error:', error);
@@ -359,60 +401,56 @@ Student State:
 
 If the student currently has no tasks or courses, provide friendly, expert guidance on how to structure their academic semester, recommend starting habits, and give a realistic baseline daily study plan.`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              dailyFocusRecommendation: {
-                type: Type.STRING,
-                description: 'A sharp, 1-2 sentence recommendation for the student’s top priority today.',
-              },
-              scheduleRationale: {
-                type: Type.STRING,
-                description: 'Clear tactical reasoning on why this schedule maximizes academic mastery.',
-              },
-              suggestions: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    category: {
-                      type: Type.STRING,
-                      description: 'One of: schedule, exam_prep, budget, focus',
-                    },
-                    title: { type: Type.STRING },
-                    description: { type: Type.STRING },
-                    actionTip: { type: Type.STRING },
+      const text = await callGeminiResilient(ai, prompt, {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            dailyFocusRecommendation: {
+              type: Type.STRING,
+              description: 'A sharp, 1-2 sentence recommendation for the student’s top priority today.',
+            },
+            scheduleRationale: {
+              type: Type.STRING,
+              description: 'Clear tactical reasoning on why this schedule maximizes academic mastery.',
+            },
+            suggestions: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  category: {
+                    type: Type.STRING,
+                    description: 'One of: schedule, exam_prep, budget, focus',
                   },
-                  required: ['category', 'title', 'description', 'actionTip'],
+                  title: { type: Type.STRING },
+                  description: { type: Type.STRING },
+                  actionTip: { type: Type.STRING },
                 },
-              },
-              blocks: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    startTime: { type: Type.STRING },
-                    endTime: { type: Type.STRING },
-                    title: { type: Type.STRING },
-                    course: { type: Type.STRING },
-                    type: { type: Type.STRING },
-                    durationMinutes: { type: Type.INTEGER },
-                  },
-                  required: ['startTime', 'endTime', 'title', 'course', 'type', 'durationMinutes'],
-                },
+                required: ['category', 'title', 'description', 'actionTip'],
               },
             },
-            required: ['dailyFocusRecommendation', 'scheduleRationale', 'suggestions', 'blocks'],
+            blocks: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  startTime: { type: Type.STRING },
+                  endTime: { type: Type.STRING },
+                  title: { type: Type.STRING },
+                  course: { type: Type.STRING },
+                  type: { type: Type.STRING },
+                  durationMinutes: { type: Type.INTEGER },
+                },
+                required: ['startTime', 'endTime', 'title', 'course', 'type', 'durationMinutes'],
+              },
+            },
           },
+          required: ['dailyFocusRecommendation', 'scheduleRationale', 'suggestions', 'blocks'],
         },
       });
 
-      const parsed = JSON.parse((response.text || '{}').trim());
+      const parsed = parseGeminiJSON(text);
       res.json(parsed);
     } catch (error) {
       console.error('Gemini academic-coach error:', error);
@@ -462,70 +500,66 @@ Analyze and accomplish:
    - MUST integrate the today's fixed timetable classes (type: 'class') so study blocks do NOT overlap with class times.
    - Insert focused study blocks (type: 'focus') for today's tasks in the free gaps, along with 10-15m recovery breaks.`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              summaryRationale: {
-                type: Type.STRING,
-                description: '1-2 sentence executive breakdown of today’s focus plan vs longer projects.',
-              },
-              todayTasks: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    title: { type: Type.STRING },
-                    course: { type: Type.STRING },
-                    priority: { type: Type.STRING, description: 'low, medium, or high' },
-                    estimatedMinutes: { type: Type.INTEGER },
-                    scheduledStartTime: { type: Type.STRING, description: 'e.g. 09:00' },
-                    scheduledEndTime: { type: Type.STRING, description: 'e.g. 09:45' },
-                  },
-                  required: ['title', 'course', 'priority', 'estimatedMinutes'],
+      const text = await callGeminiResilient(ai, prompt, {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            summaryRationale: {
+              type: Type.STRING,
+              description: '1-2 sentence executive breakdown of today’s focus plan vs longer projects.',
+            },
+            todayTasks: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  title: { type: Type.STRING },
+                  course: { type: Type.STRING },
+                  priority: { type: Type.STRING, description: 'low, medium, or high' },
+                  estimatedMinutes: { type: Type.INTEGER },
+                  scheduledStartTime: { type: Type.STRING, description: 'e.g. 09:00' },
+                  scheduledEndTime: { type: Type.STRING, description: 'e.g. 09:45' },
                 },
-              },
-              longerTermTasks: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    title: { type: Type.STRING },
-                    course: { type: Type.STRING },
-                    priority: { type: Type.STRING, description: 'low, medium, or high' },
-                    dueDate: { type: Type.STRING, description: 'e.g. Due next Friday or YYYY-MM-DD' },
-                    estimatedMinutes: { type: Type.INTEGER },
-                  },
-                  required: ['title', 'course', 'priority', 'dueDate'],
-                },
-              },
-              scheduleBlocks: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    startTime: { type: Type.STRING },
-                    endTime: { type: Type.STRING },
-                    title: { type: Type.STRING },
-                    course: { type: Type.STRING },
-                    type: { type: Type.STRING, description: 'focus, exam_prep, review, break, or class' },
-                    durationMinutes: { type: Type.INTEGER },
-                    location: { type: Type.STRING },
-                  },
-                  required: ['startTime', 'endTime', 'title', 'course', 'type', 'durationMinutes'],
-                },
+                required: ['title', 'course', 'priority', 'estimatedMinutes'],
               },
             },
-            required: ['summaryRationale', 'todayTasks', 'longerTermTasks', 'scheduleBlocks'],
+            longerTermTasks: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  title: { type: Type.STRING },
+                  course: { type: Type.STRING },
+                  priority: { type: Type.STRING, description: 'low, medium, or high' },
+                  dueDate: { type: Type.STRING, description: 'e.g. Due next Friday or YYYY-MM-DD' },
+                  estimatedMinutes: { type: Type.INTEGER },
+                },
+                required: ['title', 'course', 'priority', 'dueDate'],
+              },
+            },
+            scheduleBlocks: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  startTime: { type: Type.STRING },
+                  endTime: { type: Type.STRING },
+                  title: { type: Type.STRING },
+                  course: { type: Type.STRING },
+                  type: { type: Type.STRING, description: 'focus, exam_prep, review, break, or class' },
+                  durationMinutes: { type: Type.INTEGER },
+                  location: { type: Type.STRING },
+                },
+                required: ['startTime', 'endTime', 'title', 'course', 'type', 'durationMinutes'],
+              },
+            },
           },
+          required: ['summaryRationale', 'todayTasks', 'longerTermTasks', 'scheduleBlocks'],
         },
       });
 
-      const parsed = JSON.parse((response.text || '{}').trim());
+      const parsed = parseGeminiJSON(text);
       res.json(parsed);
     } catch (error) {
       console.error('Gemini intake-and-classify error:', error);
@@ -563,44 +597,40 @@ Map each class to:
 - room: Location/Hall/Room if mentioned, or empty string
 - instructor: Professor/Instructor name if mentioned, or empty string`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              summary: {
-                type: Type.STRING,
-                description: 'Summary of detected weekly class commitments.',
-              },
-              slots: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    dayOfWeek: {
-                      type: Type.STRING,
-                      description: 'Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday',
-                    },
-                    courseCode: { type: Type.STRING },
-                    courseName: { type: Type.STRING },
-                    startTime: { type: Type.STRING },
-                    endTime: { type: Type.STRING },
-                    room: { type: Type.STRING },
-                    instructor: { type: Type.STRING },
+      const text = await callGeminiResilient(ai, prompt, {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            summary: {
+              type: Type.STRING,
+              description: 'Summary of detected weekly class commitments.',
+            },
+            slots: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  dayOfWeek: {
+                    type: Type.STRING,
+                    description: 'Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday',
                   },
-                  required: ['dayOfWeek', 'courseCode', 'courseName', 'startTime', 'endTime'],
+                  courseCode: { type: Type.STRING },
+                  courseName: { type: Type.STRING },
+                  startTime: { type: Type.STRING },
+                  endTime: { type: Type.STRING },
+                  room: { type: Type.STRING },
+                  instructor: { type: Type.STRING },
                 },
+                required: ['dayOfWeek', 'courseCode', 'courseName', 'startTime', 'endTime'],
               },
             },
-            required: ['summary', 'slots'],
           },
+          required: ['summary', 'slots'],
         },
       });
 
-      const parsed = JSON.parse((response.text || '{}').trim());
+      const parsed = parseGeminiJSON(text);
       res.json(parsed);
     } catch (error) {
       console.error('Gemini parse-timetable error:', error);
@@ -648,52 +678,48 @@ Provide a comprehensive, high-yield academic breakdown:
 5. "studyAdvice": 1-2 actionable, concrete study tactics tailored to mastering this specific document.
 6. "customAnswer": ${customQuery ? 'A direct, thorough, and helpful answer to the user query grounded in this document.' : '""'}`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              summary: {
-                type: Type.STRING,
-                description: 'Executive academic summary of the document.',
-              },
-              keyTopics: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
-              },
-              examPredictions: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
-              },
-              recallQuiz: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    question: { type: Type.STRING },
-                    answer: { type: Type.STRING },
-                  },
-                  required: ['question', 'answer'],
+      const text = await callGeminiResilient(ai, prompt, {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            summary: {
+              type: Type.STRING,
+              description: 'Executive academic summary of the document.',
+            },
+            keyTopics: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+            },
+            examPredictions: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+            },
+            recallQuiz: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  question: { type: Type.STRING },
+                  answer: { type: Type.STRING },
                 },
-              },
-              studyAdvice: {
-                type: Type.STRING,
-                description: 'Specific study technique for this document.',
-              },
-              customAnswer: {
-                type: Type.STRING,
-                description: 'Answer to custom question if provided.',
+                required: ['question', 'answer'],
               },
             },
-            required: ['summary', 'keyTopics', 'examPredictions', 'recallQuiz', 'studyAdvice'],
+            studyAdvice: {
+              type: Type.STRING,
+              description: 'Specific study technique for this document.',
+            },
+            customAnswer: {
+              type: Type.STRING,
+              description: 'Answer to custom question if provided.',
+            },
           },
+          required: ['summary', 'keyTopics', 'examPredictions', 'recallQuiz', 'studyAdvice'],
         },
       });
 
-      const parsed = JSON.parse((response.text || '{}').trim());
+      const parsed = parseGeminiJSON(text);
       res.json(parsed);
     } catch (error) {
       console.error('Gemini analyze-document error:', error);

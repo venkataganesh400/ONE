@@ -11,6 +11,26 @@ import {
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, googleProvider, db, handleFirestoreError, OperationType } from '../utils/firebase.ts';
 
+const STUDENT_PROFILE_STORAGE_KEY = 'one_student_profile_session';
+
+export interface StudentAuthProfile {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+  isAnonymous: boolean;
+  emailVerified: boolean;
+  providerData: Array<{
+    providerId: string;
+    displayName: string | null;
+    email: string | null;
+    photoURL: string | null;
+    uid: string;
+    phoneNumber: string | null;
+  }>;
+  getIdToken: (forceRefresh?: boolean) => Promise<string>;
+}
+
 export interface UseFirebaseAuthReturn {
   user: User | null;
   loading: boolean;
@@ -20,8 +40,53 @@ export interface UseFirebaseAuthReturn {
   signInWithGoogle: () => Promise<void>;
   signUpWithEmail: (email: string, pass: string, name?: string) => Promise<boolean>;
   signInWithEmail: (email: string, pass: string) => Promise<boolean>;
+  signInWithStudentProfile: (name: string, email?: string) => Promise<boolean>;
   signInAsGuestStudent: () => Promise<void>;
   signOutUser: () => Promise<void>;
+}
+
+function createLocalStudentUser(name: string, email?: string): User {
+  const cleanName = name.trim() || 'Student User';
+  const cleanEmail = email?.trim() || `${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'student'}@workspace.local`;
+  let uid = '';
+  try {
+    uid = localStorage.getItem('one_student_uid') || '';
+    if (!uid) {
+      uid = `student_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      localStorage.setItem('one_student_uid', uid);
+    }
+  } catch {
+    uid = `student_${Date.now()}`;
+  }
+
+  const userObj: any = {
+    uid,
+    displayName: cleanName,
+    email: cleanEmail,
+    photoURL: '',
+    isAnonymous: false,
+    emailVerified: true,
+    phoneNumber: null,
+    tenantId: null,
+    providerId: 'student_profile',
+    providerData: [
+      {
+        providerId: 'student_profile',
+        uid,
+        displayName: cleanName,
+        email: cleanEmail,
+        photoURL: null,
+        phoneNumber: null,
+      },
+    ],
+    getIdToken: async () => `local-student-token-${uid}`,
+    getIdTokenResult: async () => ({ token: `local-student-token-${uid}`, claims: {}, authTime: '0', issuedAtTime: '0', expirationTime: '0', signInProvider: 'student_profile', signInSecondFactor: null }),
+    reload: async () => {},
+    delete: async () => {},
+    toJSON: () => ({ uid, displayName: cleanName, email: cleanEmail }),
+  };
+
+  return userObj as User;
 }
 
 export function useFirebaseAuth(): UseFirebaseAuthReturn {
@@ -32,6 +97,22 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
   const isSigningInRef = useRef<boolean>(false);
 
   const clearError = () => setError(null);
+
+  // Restore local student session on mount if present
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(STUDENT_PROFILE_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.displayName) {
+          const localUser = createLocalStudentUser(parsed.displayName, parsed.email);
+          setUser(localUser);
+        }
+      }
+    } catch {
+      // Local storage unreadable
+    }
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -53,14 +134,37 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
           if (msg.includes('token-service-api') || msg.includes('disabled')) {
             console.warn('[Auth] Token Service API pending propagation or disabled. Resetting session to offline.');
             await signOut(auth).catch(() => {});
+            // Keep local student profile if one exists
+            try {
+              const stored = localStorage.getItem(STUDENT_PROFILE_STORAGE_KEY);
+              if (stored) {
+                const parsed = JSON.parse(stored);
+                if (parsed?.displayName) {
+                  setUser(createLocalStudentUser(parsed.displayName, parsed.email));
+                  setLoading(false);
+                  return;
+                }
+              }
+            } catch {}
             setUser(null);
             setLoading(false);
             return;
           }
         }
+        setUser(currentUser);
+      } else {
+        // If Firebase has no user, check local student profile
+        try {
+          const stored = localStorage.getItem(STUDENT_PROFILE_STORAGE_KEY);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed?.displayName) {
+              setUser(createLocalStudentUser(parsed.displayName, parsed.email));
+            }
+          }
+        } catch {}
       }
 
-      setUser(currentUser);
       setLoading(false);
 
       if (currentUser && !currentUser.isAnonymous) {
@@ -79,7 +183,6 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
             { merge: true }
           );
         } catch (err: unknown) {
-          // Gracefully handle if initial profile sync is delayed or offline
           const msg = err instanceof Error ? err.message : String(err);
           if (msg.includes('token-service-api') || msg.includes('offline') || msg.includes('Could not reach')) {
             console.warn('[Auth Profile Sync] Cloud sync will resume once connected:', msg);
@@ -93,6 +196,59 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
     return () => unsubscribe();
   }, []);
 
+  const signInWithStudentProfile = async (name: string, email?: string): Promise<boolean> => {
+    if (isSigningInRef.current) return false;
+    isSigningInRef.current = true;
+    setIsSigningIn(true);
+    setError(null);
+
+    try {
+      const cleanName = name.trim();
+      if (!cleanName) {
+        setError('Please enter your name or student handle.');
+        return false;
+      }
+
+      const localUser = createLocalStudentUser(cleanName, email);
+      setUser(localUser);
+
+      try {
+        localStorage.setItem(
+          STUDENT_PROFILE_STORAGE_KEY,
+          JSON.stringify({ displayName: cleanName, email: email?.trim() || '' })
+        );
+      } catch {}
+
+      // Attempt optional cloud profile registration if Firestore is available
+      try {
+        const userDocRef = doc(db, 'users', localUser.uid);
+        await setDoc(
+          userDocRef,
+          {
+            id: localUser.uid,
+            email: localUser.email,
+            displayName: localUser.displayName,
+            photoURL: '',
+            isAnonymous: false,
+            lastLoginAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+      } catch (e) {
+        console.warn('[Student Sign-In] Saved profile locally (Cloud sync will persist once online).');
+      }
+
+      return true;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to sign in student profile';
+      setError(msg);
+      return false;
+    } finally {
+      isSigningInRef.current = false;
+      setIsSigningIn(false);
+    }
+  };
+
   const signInWithGoogle = async () => {
     if (isSigningInRef.current) return;
     isSigningInRef.current = true;
@@ -100,7 +256,13 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
     setError(null);
 
     try {
-      await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      if (result.user) {
+        setUser(result.user);
+        try {
+          localStorage.removeItem(STUDENT_PROFILE_STORAGE_KEY);
+        } catch {}
+      }
     } catch (err: unknown) {
       const isFirebaseError = typeof err === 'object' && err !== null && 'code' in err;
       const errorCode = isFirebaseError ? String((err as { code: string }).code) : '';
@@ -114,12 +276,12 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
       }
 
       if (errorCode === 'auth/popup-blocked') {
-        setError('Google sign-in popup was blocked. Please enable popups or continue in Guest Mode.');
+        setError('Google sign-in popup was blocked. Please enable popups or use instant Student Sign-In below.');
         return;
       }
 
       if (errorCode === 'auth/unauthorized-domain') {
-        setError('This preview domain is awaiting OAuth authorization. Please continue in Local Guest Mode.');
+        setError('Google OAuth is awaiting domain authorization. Use Instant Student Sign-In below without waiting for OAuth.');
         return;
       }
 
@@ -143,18 +305,24 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
       if (name && cred.user) {
         try {
           await updateProfile(cred.user, { displayName: name.trim() });
-        } catch {
-          // non-critical
-        }
+        } catch {}
       }
       return true;
     } catch (err: unknown) {
       const isFirebaseError = typeof err === 'object' && err !== null && 'code' in err;
       const errorCode = isFirebaseError ? String((err as { code: string }).code) : '';
 
-      if (errorCode === 'auth/operation-not-allowed') {
-        setError('Email sign-in is not enabled on this project. Please continue with Google Sign-In or use Guest Mode.');
-      } else if (errorCode === 'auth/email-already-in-use') {
+      // Graceful fallback to student profile if email auth is disabled or restricted
+      if (
+        errorCode === 'auth/operation-not-allowed' ||
+        errorCode === 'auth/unauthorized-domain' ||
+        String(err).includes('token-service-api')
+      ) {
+        console.warn('[Auth Fallback] Signing in via Student Profile session due to:', errorCode);
+        return await signInWithStudentProfile(name || email.split('@')[0], email);
+      }
+
+      if (errorCode === 'auth/email-already-in-use') {
         setError('This email is already registered. Please sign in instead.');
       } else if (errorCode === 'auth/weak-password') {
         setError('Password should be at least 6 characters.');
@@ -162,11 +330,7 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
         setError('Please enter a valid email address.');
       } else {
         const msg = err instanceof Error ? err.message : 'Sign up failed';
-        if (msg.includes('token-service-api')) {
-          setError('Google Cloud Token Service is activating. Please use Google Sign-In or Guest Mode.');
-        } else {
-          setError(msg);
-        }
+        setError(msg);
       }
       return false;
     } finally {
@@ -188,19 +352,23 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
       const isFirebaseError = typeof err === 'object' && err !== null && 'code' in err;
       const errorCode = isFirebaseError ? String((err as { code: string }).code) : '';
 
-      if (errorCode === 'auth/operation-not-allowed') {
-        setError('Email sign-in is not enabled on this project. Please continue with Google Sign-In or use Guest Mode.');
-      } else if (errorCode === 'auth/invalid-credential' || errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password') {
-        setError('Invalid email or password. Please verify and try again.');
+      // Graceful fallback to student profile if email auth is disabled or restricted
+      if (
+        errorCode === 'auth/operation-not-allowed' ||
+        errorCode === 'auth/unauthorized-domain' ||
+        String(err).includes('token-service-api')
+      ) {
+        console.warn('[Auth Fallback] Signing in via Student Profile session due to:', errorCode);
+        return await signInWithStudentProfile(email.split('@')[0], email);
+      }
+
+      if (errorCode === 'auth/invalid-credential' || errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password') {
+        setError('Invalid email or password. Please verify or use Instant Student Sign-In below.');
       } else if (errorCode === 'auth/too-many-requests') {
-        setError('Too many failed attempts. Please wait a moment or reset your password.');
+        setError('Too many failed attempts. Please use Instant Student Sign-In below.');
       } else {
         const msg = err instanceof Error ? err.message : 'Sign in failed';
-        if (msg.includes('token-service-api')) {
-          setError('Google Cloud Token Service is activating. Please use Google Sign-In or Guest Mode.');
-        } else {
-          setError(msg);
-        }
+        setError(msg);
       }
       return false;
     } finally {
@@ -210,8 +378,10 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
   };
 
   const signInAsGuestStudent = async () => {
-    // Guest mode provides full offline-first functionality without creating an un-provisioned backend session
     await signOut(auth).catch(() => {});
+    try {
+      localStorage.removeItem(STUDENT_PROFILE_STORAGE_KEY);
+    } catch {}
     setUser(null);
     setError(null);
   };
@@ -219,7 +389,10 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
   const signOutUser = async () => {
     setError(null);
     try {
-      await signOut(auth);
+      await signOut(auth).catch(() => {});
+      try {
+        localStorage.removeItem(STUDENT_PROFILE_STORAGE_KEY);
+      } catch {}
       setUser(null);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Sign out failed';
@@ -236,6 +409,7 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
     signInWithGoogle,
     signUpWithEmail,
     signInWithEmail,
+    signInWithStudentProfile,
     signInAsGuestStudent,
     signOutUser,
   };

@@ -79,7 +79,7 @@ export default function App() {
   const [isTimetableModalOpen, setIsTimetableModalOpen] = useState(false);
   const [isWorkspaceSettingsOpen, setIsWorkspaceSettingsOpen] = useState(false);
 
-  // Real-time Firebase Authentication
+  // Real-time Firebase & Student Authentication
   const {
     user,
     loading: authLoading,
@@ -89,6 +89,7 @@ export default function App() {
     signInWithGoogle,
     signUpWithEmail,
     signInWithEmail,
+    signInWithStudentProfile,
     signInAsGuestStudent,
     signOutUser,
   } = useFirebaseAuth();
@@ -357,7 +358,7 @@ export default function App() {
         pendingTaskCount={pendingTaskCount}
       />
 
-      {/* User Authentication Modal (Google + Email/Password + Guest) */}
+      {/* User Authentication Modal (Instant Student Profile + Google OAuth + Email) */}
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
@@ -365,6 +366,7 @@ export default function App() {
         onSignInWithGoogle={signInWithGoogle}
         onSignUpWithEmail={signUpWithEmail}
         onSignInWithEmail={signInWithEmail}
+        onSignInWithStudentProfile={signInWithStudentProfile}
         onSignInAsGuest={signInAsGuestStudent}
         isSigningIn={isSigningIn}
         authError={authError}

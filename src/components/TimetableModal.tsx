@@ -246,7 +246,7 @@ export const TimetableModal: React.FC<TimetableModalProps> = ({
                 onChange={(e) => setPasteText(e.target.value)}
                 placeholder="e.g. Mon 09:00 - 10:30 CS-301 Data Structures Room 204&#10;Tue 14:00 - 15:30 MATH-204 Linear Algebra Hall B&#10;Wed 10:00 - 11:30 PHYS-102 Physics Lab"
                 rows={2}
-                className="w-full p-2.5 rounded-xl border border-[#DED7CA] dark:border-[#3E352B] bg-[#FAF7F2] dark:bg-[#1A1714] text-xs focus:ring-1 focus:ring-[#8A5836] focus:outline-none"
+                className="w-full p-2.5 rounded-xl border border-[#DED7CA] dark:border-[#3E352B] bg-[#FAF7F2] dark:bg-[#1A1714] text-xs focus:ring-1 focus:ring-[#8A5836] focus:outline-none resize-none scrollbar-none"
               />
               <button
                 type="button"

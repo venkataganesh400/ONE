@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { User } from 'firebase/auth';
 import type { StudentTab, ThemeMode } from '../types/index.ts';
-import { PWAInstallButton } from './PWAInstallButton.tsx';
 import type { SyncStatus } from '../hooks/useCloudSync.ts';
 import type { CompressionMetrics } from '../utils/compression.ts';
 
@@ -138,34 +137,33 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          {/* Gemini Academic AI Strategist Trigger */}
+          {/* Gemini Academic AI Strategist Trigger (Desktop/Tablet) */}
           {onOpenGeminiAdvisor && (
             <button
               type="button"
               onClick={onOpenGeminiAdvisor}
-              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#FAF7F2] to-[#F2EDE4] dark:from-[#25201B] dark:to-[#1C1713] border border-[#D8A775]/50 text-xs font-semibold text-[#3C2E25] dark:text-[#FAF7F2] shadow-2xs hover:border-[#8A5836] transition"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#FAF7F2] to-[#F2EDE4] dark:from-[#25201B] dark:to-[#1C1713] border border-[#D8A775]/50 text-xs font-semibold text-[#3C2E25] dark:text-[#FAF7F2] shadow-2xs hover:border-[#8A5836] transition"
               title="Open Gemini Academic AI Strategist & Schedule Planner"
             >
               <Sparkles className="w-3.5 h-3.5 text-[#8A5836] dark:text-[#D8A775]" />
-              <span className="hidden sm:inline">Gemini AI</span>
-              <span className="sm:hidden">AI</span>
+              <span>Gemini AI</span>
             </button>
           )}
 
-          {/* Compression Badge & Modal Trigger */}
+          {/* Compression Badge & Modal Trigger (Desktop) */}
           <button
             type="button"
             onClick={onOpenCompressionModal}
-            className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-[#E0D8CB] dark:border-[#383028] bg-white/70 dark:bg-[#201C18]/80 text-[#3C2E25] dark:text-[#E8E2D8] hover:bg-white dark:hover:bg-[#28231E] transition text-xs font-mono shadow-2xs"
+            className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-[#E0D8CB] dark:border-[#383028] bg-white/70 dark:bg-[#201C18]/80 text-[#3C2E25] dark:text-[#E8E2D8] hover:bg-white dark:hover:bg-[#28231E] transition text-xs font-mono shadow-2xs"
             title="Inspect Data Compression & Storage Savings"
           >
             <Sparkles className="w-3.5 h-3.5 text-[#8A5836] dark:text-[#C4976A]" />
             <span>{compressionMetrics ? `${compressionMetrics.ratioPercent}% Saved` : 'Compressed'}</span>
           </button>
 
-          {/* Real-time Cloud Sync Pill */}
+          {/* Real-time Cloud Sync Pill (Desktop/Tablet) */}
           <div
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-[#E0D8CB] dark:border-[#383028] bg-white/70 dark:bg-[#201C18]/80 text-xs font-medium text-[#5C5248] dark:text-[#B5AAA0] shadow-2xs cursor-pointer"
+            className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-[#E0D8CB] dark:border-[#383028] bg-white/70 dark:bg-[#201C18]/80 text-xs font-medium text-[#5C5248] dark:text-[#B5AAA0] shadow-2xs cursor-pointer"
             onClick={onOpenCompressionModal}
             title={
               user
@@ -174,7 +172,7 @@ export const Header: React.FC<HeaderProps> = ({
                   : syncStatus === 'syncing'
                   ? 'Syncing compressed data to Firestore...'
                   : 'Cloud ready'
-                : 'Local guest mode. Click to view storage.'
+                : 'Local student mode. Click to view storage.'
             }
           >
             {user ? (
@@ -327,8 +325,6 @@ export const Header: React.FC<HeaderProps> = ({
               <span>Check-in</span>
             </button>
           )}
-
-          <PWAInstallButton compact={false} />
         </div>
       </div>
     </header>

@@ -338,7 +338,7 @@ export const StudentOverview: React.FC<StudentOverviewProps> = ({
               onChange={(e) => setWorkloadInput(e.target.value)}
               placeholder="Dump everything on your plate: &#10;e.g. Finish CS lab 3 by 4pm, review Econ chapters 4-5, start 15-page history research paper due in 2 weeks, solve stats problem set, buy printer ink"
               rows={3}
-              className="w-full p-3.5 rounded-2xl border border-[#D6CFC4] dark:border-[#383028] bg-white dark:bg-[#1A1714] text-xs sm:text-sm text-[#1C1917] dark:text-[#FAF7F2] placeholder-[#8C7D70] focus:ring-2 focus:ring-[#8A5836]/40 focus:outline-none transition shadow-2xs"
+              className="w-full p-3.5 rounded-2xl border border-[#D6CFC4] dark:border-[#383028] bg-white dark:bg-[#1A1714] text-xs sm:text-sm text-[#1C1917] dark:text-[#FAF7F2] placeholder-[#8C7D70] focus:ring-2 focus:ring-[#8A5836]/40 focus:outline-none transition shadow-2xs resize-none scrollbar-none"
             />
           </div>
 

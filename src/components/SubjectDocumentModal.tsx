@@ -409,7 +409,7 @@ export const SubjectDocumentModal: React.FC<SubjectDocumentModalProps> = ({
                     value={docContent}
                     onChange={(e) => setDocContent(e.target.value)}
                     placeholder="Paste or inspect the text of the syllabus, lecture slides, or exam review..."
-                    className="w-full p-3.5 rounded-xl bg-white dark:bg-[#201C18] border border-[#D6CFC4] dark:border-[#383028] text-xs font-mono text-[#1C1917] dark:text-[#FAF7F2] leading-relaxed resize-none"
+                    className="w-full p-3.5 rounded-xl bg-white dark:bg-[#201C18] border border-[#D6CFC4] dark:border-[#383028] text-xs font-mono text-[#1C1917] dark:text-[#FAF7F2] leading-relaxed resize-none scrollbar-none"
                   />
                 </div>
 
@@ -692,7 +692,7 @@ export const SubjectDocumentModal: React.FC<SubjectDocumentModalProps> = ({
                       </p>
                     </div>
 
-                    <div className="text-left p-3.5 rounded-xl bg-[#FAF7F2] dark:bg-[#151210] border border-[#E8E2D8] dark:border-[#2C2620] max-h-40 overflow-y-auto">
+                    <div className="text-left p-3.5 rounded-xl bg-[#FAF7F2] dark:bg-[#151210] border border-[#E8E2D8] dark:border-[#2C2620] max-h-40 overflow-y-auto scrollbar-none">
                       <span className="text-[10px] font-mono text-[#8C8276] block mb-1">
                         Content Preview:
                       </span>

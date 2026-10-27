@@ -336,7 +336,7 @@ export const StudentNotesView: React.FC<StudentNotesViewProps> = ({
                     value={activeNote.content}
                     onChange={(e) => handleUpdateActiveNote({ content: e.target.value })}
                     placeholder="Write lecture notes, proofs, or study guides..."
-                    className="w-full bg-transparent text-sm sm:text-base font-mono text-zinc-800 dark:text-zinc-200 leading-relaxed focus:outline-none resize-y"
+                    className="w-full bg-transparent text-sm sm:text-base font-mono text-zinc-800 dark:text-zinc-200 leading-relaxed focus:outline-none resize-none scrollbar-none"
                   />
                 ) : (
                   <div className="py-2 space-y-3 text-sm sm:text-base text-zinc-800 dark:text-zinc-200 leading-relaxed">

@@ -357,30 +357,58 @@ export async function requestAcademicCoach(
   }
 
   const localSched = buildLocalSmartSchedule(data, '08:30');
+  const pendingTasks = data.tasks.filter((t) => !t.completed);
+  const topTask = pendingTasks[0];
+  const nextExam = data.exams[0];
+  const underloggedCourse = data.courses.find((c) => c.loggedHours < c.targetHoursPerWeek) || data.courses[0];
+
+  const dynamicSuggestions: AcademicCoachSuggestion[] = [];
+
+  if (topTask) {
+    dynamicSuggestions.push({
+      category: 'schedule',
+      title: `Prioritize "${topTask.title}" (${topTask.course})`,
+      description: `Targeting your top priority first thing prevents decision fatigue and protects your deepest focus slot.`,
+      actionTip: `Block out ${topTask.estimatedMinutes || data.focusCadenceMinutes || 45} minutes without tabs or notifications.`,
+    });
+  } else {
+    dynamicSuggestions.push({
+      category: 'schedule',
+      title: 'Plan Your Morning Anchor Objective',
+      description: 'Defining 1 explicit academic deliverable sets the cognitive direction for the whole day.',
+      actionTip: 'Add your most important assignment to the Tasks tab.',
+    });
+  }
+
+  if (nextExam) {
+    dynamicSuggestions.push({
+      category: 'exam_prep',
+      title: `Upcoming Exam: ${nextExam.title} (${nextExam.course})`,
+      description: `Targeting active recall rather than re-reading notes significantly boosts exam grade averages.`,
+      actionTip: `Dedicate 1 study block to solving past exam problems or self-quizzing.`,
+    });
+  } else if (underloggedCourse) {
+    dynamicSuggestions.push({
+      category: 'focus',
+      title: `Boost Study Hours in ${underloggedCourse.code}`,
+      description: `You have logged ${underloggedCourse.loggedHours}h of your ${underloggedCourse.targetHoursPerWeek}h weekly goal for ${underloggedCourse.name}.`,
+      actionTip: `Schedule a 50-minute deep-work session to close the gap before the weekend.`,
+    });
+  }
+
+  dynamicSuggestions.push({
+    category: 'focus',
+    title: `${data.focusCadenceMinutes || 45}m Cadence with Recovery Spacing`,
+    description: `Single-task with phone out of sight for ${data.focusCadenceMinutes || 45} minutes, followed by a strict 10-15 minute screen-free recovery.`,
+    actionTip: `Start the Pomodoro timer in the Focus tab to attribute time to your active course.`,
+  });
+
   return {
     dailyFocusRecommendation:
-      data.dailyPriority || 'Establish your primary daily objective to anchor your deep-work hours.',
+      data.dailyPriority ||
+      (topTask ? `Master ${topTask.title} (${topTask.course}) as your primary anchor today.` : 'Establish your primary daily objective to anchor deep-work hours.'),
     scheduleRationale: localSched.coachNote,
-    suggestions: [
-      {
-        category: 'schedule',
-        title: 'Front-Load Difficult Concepts',
-        description: 'Tackle high-cognition assignments during your first 2 study blocks when willpower is highest.',
-        actionTip: 'Schedule your toughest problem set first thing in the morning.',
-      },
-      {
-        category: 'focus',
-        title: `${data.focusCadenceMinutes || 45}m Deep Work Cadence`,
-        description: 'Single-task with phone out of sight for 45 minutes, followed by a strict 15-minute screen-free rest.',
-        actionTip: 'Use the Focus tab Pomodoro to track focused minutes against your weekly target.',
-      },
-      {
-        category: 'budget',
-        title: 'Daily Safe-Spend Pacing',
-        description: 'Keep variable mess and cafe expenses under your calculated safe daily spend.',
-        actionTip: 'Log expenses in real-time or via natural language in the Wallet tab.',
-      },
-    ],
+    suggestions: dynamicSuggestions,
     blocks: localSched.blocks,
     source: 'local',
   };
